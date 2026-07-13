@@ -1,0 +1,3699 @@
+openapi: 3.0.3
+info:
+  title: Dhyan Mitra LMS API
+  version: "1.0.0"
+  description: >
+    REST API contract for the Dhyan Mitra Learning Management System (Yoga LMS),
+    generated chapter-by-chapter from the SRS (SRS DOCUMENTAITON FOR DHYANMITRA
+    WEBSITE.docx, v1.0). Each path/schema below references its originating SRS
+    section for traceability (e.g. "Ref: SRS 3.4").
+
+    Conventions used throughout this contract:
+      - All IDs are UUID strings.
+      - All timestamps are ISO-8601 UTC (e.g. 2026-07-13T10:30:00Z).
+      - Every response is wrapped in the standard envelope defined in SRS 2.8:
+        { "success": bool, "message": string, "data": ... }.
+      - Errors use the same envelope shape with success=false and an "errors" array.
+      - List endpoints are paginated using page (0-indexed), size, and sort
+        query parameters, and return data.content + data.page metadata.
+      - Every protected operation is tagged with a custom `x-roles` extension
+        listing which of ADMINISTRATOR / INSTRUCTOR / STUDENT may call it.
+        Endpoints with no `x-roles` and `security: []` are public/unauthenticated.
+servers:
+  - url: https://api.dhyanmitra.com/api/v1
+    description: Production
+  - url: https://staging-api.dhyanmitra.com/api/v1
+    description: Staging
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+    description: Chapter 3 - Authentication & Authorization
+  - name: Users
+    description: Chapter 4 - User Management
+  - name: Courses
+    description: Chapter 5 - Course Management
+  - name: Categories
+    description: Chapter 6 - Category Management
+  - name: Sections & Lessons
+    description: Chapter 7 - Section & Lesson Management
+  - name: Lesson Resources
+    description: Chapter 8 - Lesson Resources & File Management
+  - name: Subscriptions
+    description: Chapter 9 - Subscription Plans & Student Enrollments
+  - name: Payments
+    description: Chapter 10 - Payment Management
+  - name: Live Classes
+    description: Chapter 11 - Live Classes
+  - name: Progress & Certificates
+    description: Chapter 12 - Student Progress Tracking & Certificate Management
+  - name: Dashboard & Analytics
+    description: Chapter 13 - Dashboard & Analytics
+  - name: Notifications
+    description: Chapter 14 - Notification Management
+  - name: Reports
+    description: Chapter 15 - Reports Management
+  - name: Settings
+    description: Chapter 16 - System Settings
+
+paths:
+  # ======================================================================
+  # Chapter 3: Authentication & Authorization
+  # ======================================================================
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Student self-registration
+      description: >
+        Ref: SRS 3.4. Creates a new STUDENT account with ACTIVE status.
+        Does not enroll the student in any course. Sends a welcome email
+        asynchronously; email failure must not block registration.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterStudentRequest'
+      responses:
+        '201':
+          description: Student registered successfully.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserSummary'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Email or mobile number already registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: User login
+      description: >
+        Ref: SRS 3.6, 3.7. Issues a JWT access + refresh token pair.
+        Enforces the single-active-session policy: any existing active
+        session for this user is invalidated first.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: Login successful.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthTokenResponse'
+        '401':
+          description: Invalid credentials, inactive, or blocked account.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout the current session
+      description: "Ref: SRS 3.8. Revokes the refresh token and marks the session inactive."
+      responses:
+        '200':
+          description: Logged out.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new access token
+      description: "Ref: SRS 3.12."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: New access token issued.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthTokenResponse'
+        '401':
+          description: Refresh token invalid, expired, or revoked.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request a password reset email
+      description: "Ref: SRS 3.10. Reset tokens are single-use and expire after a configured duration."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: >
+            Always returns success regardless of whether the email exists,
+            to avoid leaking account existence.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Complete a password reset using a reset token
+      description: "Ref: SRS 3.10. Invalidates all existing sessions on success."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword, confirmPassword]
+              properties:
+                token: { type: string }
+                newPassword: { type: string, format: password }
+                confirmPassword: { type: string, format: password }
+      responses:
+        '200':
+          description: Password reset successfully.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '400':
+          description: Token invalid/expired, or password policy not met.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change password for the authenticated user
+      description: "Ref: SRS 3.11. Invalidates existing sessions on success; user must log in again."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword, confirmPassword]
+              properties:
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password }
+                confirmPassword: { type: string, format: password }
+      responses:
+        '200':
+          description: Password changed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/instructors/invitations:
+    post:
+      tags: [Auth]
+      summary: Invite a new instructor
+      description: >
+        Ref: SRS 3.5. Administrator-only. Creates a single-use, expiring
+        invitation and sends the invitation email.
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, firstName, lastName]
+              properties:
+                email: { type: string, format: email }
+                firstName: { type: string }
+                lastName: { type: string }
+      responses:
+        '201':
+          description: Invitation created and email queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /auth/instructors/invitations/{token}:
+    get:
+      tags: [Auth]
+      summary: Validate an instructor invitation token
+      description: >
+        Not explicitly in SRS text but required to support SRS 3.5's flow -
+        lets the frontend confirm a token is valid/unexpired before
+        rendering the "set password" form.
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Token is valid; returns the invited instructor's name/email for display.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          email: { type: string, format: email }
+                          firstName: { type: string }
+                          lastName: { type: string }
+        '400':
+          description: Token invalid, expired, or already used.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/instructors/accept-invitation:
+    post:
+      tags: [Auth]
+      summary: Accept an instructor invitation and set password
+      description: "Ref: SRS 3.5. Activates the instructor account."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password, confirmPassword]
+              properties:
+                token: { type: string }
+                password: { type: string, format: password }
+                confirmPassword: { type: string, format: password }
+      responses:
+        '200':
+          description: Instructor account activated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserSummary'
+        '400':
+          description: Token invalid/expired/already used, or password policy not met.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  # ======================================================================
+  # Chapter 4: User Management
+  # ======================================================================
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get the authenticated user's own profile
+      description: "Ref: SRS 4.3."
+      responses:
+        '200':
+          description: Current user's profile.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/UserProfile' }
+    patch:
+      tags: [Users]
+      summary: Update the authenticated user's own profile
+      description: >
+        "Ref: SRS 4.6 (Student editable fields), 4.7 (Instructor editable
+        fields incl. bio/experience/specializations). Email, role, and
+        account status are never editable via this endpoint."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR, STUDENT]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOwnProfileRequest' }
+      responses:
+        '200':
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/UserProfile' }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /users/me/photo:
+    post:
+      tags: [Users]
+      summary: Upload the authenticated user's profile photo
+      description: "Ref: SRS 4.13. JPG/PNG only, max 5 MB."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR, STUDENT]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '200':
+          description: Profile photo updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          profilePhotoUrl: { type: string, format: uri }
+        '400':
+          description: Invalid file type or size exceeds 5 MB.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /users:
+    get:
+      tags: [Users]
+      summary: Search/list all users
+      description: "Ref: SRS 4.9, 4.10, 4.11. Administrator-only."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: search
+          in: query
+          description: Partial match against name, email, or mobile number.
+          schema: { type: string }
+        - name: role
+          in: query
+          schema: { $ref: '#/components/schemas/UserRole' }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, INACTIVE, BLOCKED] }
+        - name: registeredAfter
+          in: query
+          schema: { type: string, format: date }
+        - name: registeredBefore
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Paginated user list.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/UserSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /users/{userId}:
+    get:
+      tags: [Users]
+      summary: Get a user's complete profile
+      description: >
+        "Ref: SRS 4.12. Administrator-only. For students, includes
+        subscriptions, progress, certificates, and payment history. For
+        instructors, includes assigned courses, scheduled live classes,
+        and student count."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Full user profile.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/UserFullProfile' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Users]
+      summary: Update a user's information (administrator)
+      description: "Ref: SRS 4.5."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOwnProfileRequest' }
+      responses:
+        '200':
+          description: User updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/UserFullProfile' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users/{userId}/status:
+    patch:
+      tags: [Users]
+      summary: Block or activate a user account
+      description: >
+        "Ref: SRS 4.5, 4.4. Administrators cannot permanently delete users -
+        this is the only status-changing operation available."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [ACTIVE, INACTIVE, BLOCKED] }
+      responses:
+        '200':
+          description: Status updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ======================================================================
+  # Chapter 5: Course Management
+  # ======================================================================
+  /courses:
+    get:
+      tags: [Courses]
+      summary: List/search courses
+      description: >
+        "Ref: SRS 5.13, 5.14. Students/public see only PUBLISHED courses
+        (Ref: SRS 5.9); administrators may additionally filter by status
+        and creation/publication date."
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: search
+          in: query
+          description: Keyword match against course title.
+          schema: { type: string }
+        - name: categoryId
+          in: query
+          schema: { type: array, items: { type: string, format: uuid } }
+          style: form
+          explode: true
+        - name: instructorId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: difficultyLevel
+          in: query
+          schema: { type: string, enum: [BEGINNER, INTERMEDIATE, ADVANCED] }
+        - name: language
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          description: Administrator-only filter.
+          schema: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+      responses:
+        '200':
+          description: Paginated course list.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/CourseSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+    post:
+      tags: [Courses]
+      summary: Create a course
+      description: "Ref: SRS 5.5. Defaults to DRAFT status."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCourseRequest' }
+      responses:
+        '201':
+          description: Course created as DRAFT.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CourseDetail' }
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /courses/{courseId}:
+    get:
+      tags: [Courses]
+      summary: Get course details
+      description: "Ref: SRS 5.15."
+      security: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Course details.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CourseDetail' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Courses]
+      summary: Update course information
+      description: "Ref: SRS 5.11. Administrator, or an instructor assigned to this course."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCourseRequest' }
+      responses:
+        '200':
+          description: Course updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CourseDetail' }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /courses/{courseId}/publish:
+    post:
+      tags: [Courses]
+      summary: Publish a course
+      description: >
+        "Ref: SRS 5.4. Requires at least one section/lesson, one category,
+        one instructor, and one ACTIVE subscription plan (Ref: SRS 6.6, 7.3, 9.6)."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Course published.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '409':
+          description: Course does not meet publish prerequisites.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /courses/{courseId}/archive:
+    post:
+      tags: [Courses]
+      summary: Archive a course
+      description: "Ref: SRS 5.12. Soft-delete; historical enrollments/certificates remain intact."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Course archived.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /courses/{courseId}/instructors:
+    post:
+      tags: [Courses]
+      summary: Assign an instructor to a course
+      description: "Ref: SRS 5.6, 4.8. Many-to-many relationship."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [instructorId]
+              properties:
+                instructorId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Instructor assigned.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /courses/{courseId}/instructors/{instructorId}:
+    delete:
+      tags: [Courses]
+      summary: Remove an instructor from a course
+      description: "Ref: SRS 5.6."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: instructorId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Instructor removed from course.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /courses/{courseId}/categories:
+    post:
+      tags: [Courses]
+      summary: Assign categories to a course
+      description: "Ref: SRS 5.7, 6.6."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [categoryIds]
+              properties:
+                categoryIds:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Categories assigned.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /courses/{courseId}/categories/{categoryId}:
+    delete:
+      tags: [Courses]
+      summary: Remove a category from a course
+      description: "Ref: SRS 5.7."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: categoryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Category removed from course.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  # ======================================================================
+  # Chapter 6: Category Management
+  # ======================================================================
+  /categories:
+    get:
+      tags: [Categories]
+      summary: List categories
+      description: >
+        "Ref: SRS 6.9, 6.10, 6.11. Public callers see only ACTIVE categories
+        that have at least one published course. Administrators may include
+        inactive categories and search by name/status."
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          description: Administrator-only filter.
+          schema: { type: string, enum: [ACTIVE, INACTIVE] }
+      responses:
+        '200':
+          description: Category list, sorted by displayOrder then name (Ref SRS 6.10).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/CategorySummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+    post:
+      tags: [Categories]
+      summary: Create a category
+      description: "Ref: SRS 6.5. Administrator-only."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCategoryRequest' }
+      responses:
+        '201':
+          description: Category created.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CategorySummary' }
+        '409':
+          description: Category name already exists.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /categories/{categoryId}:
+    get:
+      tags: [Categories]
+      summary: Get category details
+      description: "Ref: SRS 6.3."
+      security: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Category details.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CategorySummary' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Categories]
+      summary: Update a category
+      description: "Ref: SRS 6.7. Administrator-only."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCategoryRequest' }
+      responses:
+        '200':
+          description: Category updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CategorySummary' }
+
+  /categories/{categoryId}/status:
+    patch:
+      tags: [Categories]
+      summary: Activate or deactivate a category
+      description: "Ref: SRS 6.4, 6.8. Categories are never permanently deleted."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [ACTIVE, INACTIVE] }
+      responses:
+        '200':
+          description: Status updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  # ======================================================================
+  # Chapter 7: Section & Lesson Management
+  # ======================================================================
+  /courses/{courseId}/sections:
+    get:
+      tags: [Sections & Lessons]
+      summary: Get the course outline (sections with nested lessons)
+      description: "Ref: SRS 7.3, 7.9, 7.10. Students see only published sections/lessons they can access."
+      security: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Ordered list of sections, each with its ordered lessons.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/SectionDetail' }
+    post:
+      tags: [Sections & Lessons]
+      summary: Create a section within a course
+      description: "Ref: SRS 7.4."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSectionRequest' }
+      responses:
+        '201':
+          description: Section created as DRAFT.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SectionDetail' }
+
+  /courses/{courseId}/sections/reorder:
+    patch:
+      tags: [Sections & Lessons]
+      summary: Reorder sections within a course
+      description: "Ref: SRS 7.10. Does not affect lesson completion records."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sectionIdsInOrder]
+              properties:
+                sectionIdsInOrder:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Sections reordered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /sections/{sectionId}:
+    patch:
+      tags: [Sections & Lessons]
+      summary: Update a section
+      description: "Ref: SRS 7.16."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSectionRequest' }
+      responses:
+        '200':
+          description: Section updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SectionDetail' }
+
+  /sections/{sectionId}/publish:
+    post:
+      tags: [Sections & Lessons]
+      summary: Publish a section
+      description: "Ref: SRS 7.4. Requires at least one published lesson."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Section published.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '409':
+          description: Section has no published lessons.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /sections/{sectionId}/archive:
+    post:
+      tags: [Sections & Lessons]
+      summary: Archive a section
+      description: "Ref: SRS 7.17."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Section archived.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /sections/{sectionId}/lessons:
+    post:
+      tags: [Sections & Lessons]
+      summary: Create a lesson within a section
+      description: "Ref: SRS 7.7."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLessonRequest' }
+      responses:
+        '201':
+          description: Lesson created as DRAFT.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/LessonDetail' }
+
+  /sections/{sectionId}/lessons/reorder:
+    patch:
+      tags: [Sections & Lessons]
+      summary: Reorder lessons within a section
+      description: "Ref: SRS 7.9. Does not reset student progress."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lessonIdsInOrder]
+              properties:
+                lessonIdsInOrder:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lessons reordered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /lessons/{lessonId}:
+    get:
+      tags: [Sections & Lessons]
+      summary: Get lesson details
+      description: >
+        "Ref: SRS 7.14. Access requires the course/section/lesson to be
+        published and the caller to have an active, unexpired subscription -
+        except for the designated preview lesson (Ref: SRS 7.11)."
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lesson details.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/LessonDetail' }
+        '403':
+          description: No active subscription, or lesson not published.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    patch:
+      tags: [Sections & Lessons]
+      summary: Update a lesson
+      description: "Ref: SRS 7.15. Does not reset student progress."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLessonRequest' }
+      responses:
+        '200':
+          description: Lesson updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/LessonDetail' }
+
+  /lessons/{lessonId}/publish:
+    post:
+      tags: [Sections & Lessons]
+      summary: Publish a lesson
+      description: "Ref: SRS 7.6. Requires an active VIDEO resource (Ref: SRS 8.3, 8.7)."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lesson published.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '409':
+          description: No active video resource attached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /lessons/{lessonId}/archive:
+    post:
+      tags: [Sections & Lessons]
+      summary: Archive a lesson
+      description: "Ref: SRS 7.17."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lesson archived.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /lessons/{lessonId}/preview:
+    patch:
+      tags: [Sections & Lessons]
+      summary: Set or unset this lesson as the course's preview lesson
+      description: >
+        "Ref: SRS 7.11. Exactly one lesson per course may be the preview
+        lesson; setting a new one automatically unsets the previous one."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isPreview]
+              properties:
+                isPreview: { type: boolean }
+      responses:
+        '200':
+          description: Preview flag updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  # ======================================================================
+  # Chapter 8: Lesson Resources & File Management
+  # ======================================================================
+  /lessons/{lessonId}/resources:
+    get:
+      tags: [Lesson Resources]
+      summary: List a lesson's resources
+      description: "Ref: SRS 8.4, 8.11. Students see only ACTIVE resources of lessons they can access."
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Ordered list of resources.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/LessonResourceSummary' }
+    post:
+      tags: [Lesson Resources]
+      summary: Add a resource to a lesson
+      description: >
+        "Ref: SRS 8.6. For VIDEO/EXTERNAL_LINK, provide externalUrl. For
+        PDF/IMAGE/AUDIO/ZIP, first obtain an upload target via
+        POST /lesson-resources/upload-url, upload the file there, then
+        create the resource record with the returned fileReference."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLessonResourceRequest' }
+      responses:
+        '201':
+          description: Resource created as ACTIVE.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/LessonResourceSummary' }
+        '409':
+          description: Lesson already has an active VIDEO resource.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /lesson-resources/upload-url:
+    post:
+      tags: [Lesson Resources]
+      summary: Obtain a pre-signed upload URL for a file resource
+      description: >
+        "Ref: SRS 8.8, 8.15. Files (PDF/IMAGE/AUDIO/ZIP) are uploaded
+        directly to object storage using this pre-signed URL; the LMS
+        database never stores binary content."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fileName, contentType]
+              properties:
+                fileName: { type: string }
+                contentType: { type: string, example: application/pdf }
+      responses:
+        '200':
+          description: Pre-signed upload URL and the file reference to use when creating the resource.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          uploadUrl: { type: string, format: uri }
+                          fileReference: { type: string }
+                          expiresInSeconds: { type: integer }
+
+  /resources/{resourceId}:
+    patch:
+      tags: [Lesson Resources]
+      summary: Update a lesson resource
+      description: "Ref: SRS 8.13. Does not affect lesson completion records."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLessonResourceRequest' }
+      responses:
+        '200':
+          description: Resource updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/LessonResourceSummary' }
+
+  /resources/{resourceId}/archive:
+    post:
+      tags: [Lesson Resources]
+      summary: Archive a lesson resource
+      description: >
+        "Ref: SRS 8.14. If this is the lesson's only active VIDEO resource,
+        the lesson cannot remain PUBLISHED until a replacement is assigned."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Resource archived.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '409':
+          description: Cannot archive the only active video resource of a published lesson.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /resources/{resourceId}/download:
+    get:
+      tags: [Lesson Resources]
+      summary: Get a short-lived download link for a resource
+      description: >
+        "Ref: SRS 8.12, 17.24 (private file access via pre-signed URLs).
+        Applies to PDF/IMAGE/AUDIO/ZIP resources; VIDEO resources are
+        streamed directly from their external URL instead."
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Pre-signed, time-limited download URL.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          downloadUrl: { type: string, format: uri }
+                          expiresInSeconds: { type: integer }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ======================================================================
+  # Chapter 9: Subscription Plans & Student Enrollments
+  # ======================================================================
+  /courses/{courseId}/subscription-plans:
+    get:
+      tags: [Subscriptions]
+      summary: List a course's subscription plans
+      description: "Ref: SRS 9.6. Public callers see only ACTIVE plans; administrators see all."
+      security: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Subscription plans for the course.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/SubscriptionPlanSummary' }
+    post:
+      tags: [Subscriptions]
+      summary: Create a subscription plan for a course
+      description: "Ref: SRS 9.3, 9.15. Administrator-only."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSubscriptionPlanRequest' }
+      responses:
+        '201':
+          description: Plan created as ACTIVE.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SubscriptionPlanSummary' }
+
+  /subscription-plans/{planId}:
+    patch:
+      tags: [Subscriptions]
+      summary: Update a subscription plan
+      description: "Ref: SRS 9.15. Does not affect subscriptions already purchased."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSubscriptionPlanRequest' }
+      responses:
+        '200':
+          description: Plan updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /subscription-plans/{planId}/status:
+    patch:
+      tags: [Subscriptions]
+      summary: Activate, deactivate, or archive a subscription plan
+      description: "Ref: SRS 9.5, 9.15."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [ACTIVE, INACTIVE, ARCHIVED] }
+      responses:
+        '200':
+          description: Status updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /subscriptions/me:
+    get:
+      tags: [Subscriptions]
+      summary: List the authenticated student's own subscriptions
+      description: "Ref: SRS 9.13, 9.18."
+      x-roles: [STUDENT]
+      responses:
+        '200':
+          description: Student's subscriptions.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/SubscriptionSummary' }
+
+  /subscriptions:
+    get:
+      tags: [Subscriptions]
+      summary: Search/list all subscriptions
+      description: "Ref: SRS 9.16. Administrator-only."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: studentName
+          in: query
+          schema: { type: string }
+        - name: courseId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, EXPIRED, CANCELLED, PENDING] }
+      responses:
+        '200':
+          description: Paginated subscription list.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/SubscriptionSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /subscriptions/{subscriptionId}:
+    get:
+      tags: [Subscriptions]
+      summary: Get subscription details
+      description: "Ref: SRS 9.13. Administrator, or the owning student."
+      parameters:
+        - name: subscriptionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Subscription details, including full history.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SubscriptionSummary' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Subscriptions]
+      summary: Administrative correction of a subscription
+      description: "Ref: SRS 9.14. Activate a pending subscription, extend it, or correct administrative errors."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: subscriptionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [ACTIVE, EXPIRED, CANCELLED, PENDING] }
+                endDate: { type: string, format: date }
+      responses:
+        '200':
+          description: Subscription updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  # ======================================================================
+  # Chapter 10: Payment Management (incl. 10.12 Razorpay Integration)
+  # ======================================================================
+  /orders:
+    post:
+      tags: [Payments]
+      summary: Create an order for a course subscription plan
+      description: "Ref: SRS 10.3, 10.4. Order starts in PENDING status."
+      x-roles: [STUDENT]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId, subscriptionPlanId]
+              properties:
+                courseId: { type: string, format: uuid }
+                subscriptionPlanId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Order created as PENDING.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/OrderSummary' }
+    get:
+      tags: [Payments]
+      summary: Search/list all orders
+      description: "Ref: SRS 10.15. Administrator-only."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: studentName
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, PAID, FAILED, CANCELLED] }
+      responses:
+        '200':
+          description: Paginated order list (administrator view - all students).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/OrderSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /orders/me:
+    get:
+      tags: [Payments]
+      summary: List the authenticated student's own orders
+      description: "Ref: SRS 10.12 (Order History)."
+      x-roles: [STUDENT]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated order history.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/OrderSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /orders/{orderId}:
+    get:
+      tags: [Payments]
+      summary: Get order details
+      description: "Ref: SRS 10.4. Administrator, or the owning student."
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Order details.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/OrderSummary' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /orders/{orderId}/razorpay-order:
+    post:
+      tags: [Payments]
+      summary: Create the Razorpay Order for this LMS order
+      description: >
+        "Ref: SRS 10.12 (Order & Checkout Flow). Calls the Razorpay Orders
+        API server-side and returns the fields needed to launch Razorpay
+        Checkout on the client. The LMS never collects or stores raw card
+        details - all card entry happens on Razorpay's hosted checkout."
+      x-roles: [STUDENT]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Razorpay order created; use these fields to launch Checkout.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          razorpayOrderId: { type: string }
+                          razorpayKeyId: { type: string }
+                          amount: { type: integer, description: Amount in the smallest currency unit (paise). }
+                          currency: { type: string, example: INR }
+
+  /payments/razorpay/webhook:
+    post:
+      tags: [Payments]
+      summary: Razorpay webhook receiver (server-to-server)
+      description: >
+        "Ref: SRS 10.12 (Webhook as Source of Truth, Signature Verification,
+        Idempotency). Every event is verified via HMAC SHA256 against the
+        configured webhook secret before processing; unverified requests
+        are rejected and logged as a security event. Payment status is
+        finalized ONLY through this webhook, never through the client-side
+        checkout callback. Processing is idempotent per Razorpay event ID."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Razorpay's standard webhook event payload.
+      responses:
+        '200':
+          description: Event processed (or already processed - idempotent no-op).
+        '400':
+          description: Signature verification failed.
+
+  /payments/me:
+    get:
+      tags: [Payments]
+      summary: List the authenticated student's own payment history
+      description: "Ref: SRS 10.12 (Payment History)."
+      x-roles: [STUDENT]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated payment history.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/PaymentSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /payments:
+    get:
+      tags: [Payments]
+      summary: Search/list all payments
+      description: "Ref: SRS 10.15. Administrator-only."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, SUCCESS, FAILED, CANCELLED] }
+        - name: transactionReference
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paginated payment list.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/PaymentSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /payments/{paymentId}:
+    get:
+      tags: [Payments]
+      summary: Get payment details
+      description: "Ref: SRS 10.6. Administrator, or the owning student."
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment details.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/PaymentSummary' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ======================================================================
+  # Chapter 11: Live Classes
+  # ======================================================================
+  /courses/{courseId}/live-classes:
+    get:
+      tags: [Live Classes]
+      summary: List live classes for a course
+      description: "Ref: SRS 11.8. Students see this only if they have an active subscription to the course."
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Live classes for this course.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/LiveClassSummary' }
+        '403':
+          description: No active subscription to this course.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    post:
+      tags: [Live Classes]
+      summary: Schedule a live class for a course
+      description: "Ref: SRS 11.6, 11.7. Recurring schedules are not supported in Version 1."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLiveClassRequest' }
+      responses:
+        '201':
+          description: Live class scheduled.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/LiveClassSummary' }
+
+  /live-classes:
+    get:
+      tags: [Live Classes]
+      summary: Search/list live classes across courses
+      description: "Ref: SRS 11.14. Administrator/instructor view."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: courseId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string, enum: [SCHEDULED, CANCELLED, COMPLETED] }
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Paginated live class list.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/LiveClassSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /live-classes/{liveClassId}:
+    get:
+      tags: [Live Classes]
+      summary: Get live class details
+      description: "Ref: SRS 11.6."
+      parameters:
+        - name: liveClassId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Live class details.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/LiveClassSummary' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Live Classes]
+      summary: Update a live class
+      description: "Ref: SRS 11.12. Does not affect attendance history."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: liveClassId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLiveClassRequest' }
+      responses:
+        '200':
+          description: Live class updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /live-classes/{liveClassId}/cancel:
+    post:
+      tags: [Live Classes]
+      summary: Cancel a scheduled live class
+      description: "Ref: SRS 11.13."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: liveClassId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Live class cancelled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /live-classes/{liveClassId}/join:
+    post:
+      tags: [Live Classes]
+      summary: Join a live class
+      description: >
+        "Ref: SRS 11.8, 11.9, 11.10. Records attendance automatically and
+        returns the meeting URL. Requires an active subscription and a
+        SCHEDULED live class."
+      x-roles: [STUDENT]
+      parameters:
+        - name: liveClassId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Attendance recorded; meeting URL returned.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          meetingUrl: { type: string, format: uri }
+                          meetingPassword: { type: string, nullable: true }
+        '403':
+          description: No active subscription, or live class not SCHEDULED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /live-classes/{liveClassId}/recording:
+    post:
+      tags: [Live Classes]
+      summary: Add a recording URL after the session completes
+      description: >
+        "Ref: SRS 11.11. Optional; must use the same private/unlisted,
+        domain-restricted hosting requirement as lesson videos (Ref SRS 7.8)."
+      x-roles: [ADMINISTRATOR, INSTRUCTOR]
+      parameters:
+        - name: liveClassId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recordingUrl]
+              properties:
+                recordingUrl: { type: string, format: uri }
+      responses:
+        '200':
+          description: Recording URL added.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  # ======================================================================
+  # Chapter 12: Student Progress Tracking & Certificate Management
+  # ======================================================================
+  /lessons/{lessonId}/progress/complete:
+    post:
+      tags: [Progress & Certificates]
+      summary: Mark a lesson as completed
+      description: >
+        "Ref: SRS 12.4. Manual completion only in Version 1. Idempotent -
+        completion is recorded once and reopening does not reset it."
+      x-roles: [STUDENT]
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: >
+            Lesson marked complete. If this was the final published lesson
+            in the course, course completion and certificate generation are
+            triggered (Ref SRS 12.9, 12.10 - see Pending Decision note there
+            regarding completion rigor).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CourseProgressSummary' }
+
+  /courses/{courseId}/progress/me:
+    get:
+      tags: [Progress & Certificates]
+      summary: Get the authenticated student's own progress in a course
+      description: "Ref: SRS 12.6."
+      x-roles: [STUDENT]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Course progress.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CourseProgressSummary' }
+
+  /courses/{courseId}/progress:
+    get:
+      tags: [Progress & Certificates]
+      summary: List student progress for a course
+      description: "Ref: SRS 12.7. Assigned instructors only, for their own courses."
+      x-roles: [INSTRUCTOR, ADMINISTRATOR]
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated student progress for the course.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/CourseProgressSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /certificates/me:
+    get:
+      tags: [Progress & Certificates]
+      summary: List the authenticated student's own certificates
+      description: "Ref: SRS 12.12."
+      x-roles: [STUDENT]
+      responses:
+        '200':
+          description: Student's earned certificates.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/CertificateSummary' }
+
+  /certificates:
+    get:
+      tags: [Progress & Certificates]
+      summary: Search/list all certificates
+      description: "Ref: SRS 12.15. Administrator-only."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: studentName
+          in: query
+          schema: { type: string }
+        - name: courseId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: certificateNumber
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paginated certificate list.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/CertificateSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /certificates/{certificateId}:
+    get:
+      tags: [Progress & Certificates]
+      summary: Get certificate details
+      description: "Ref: SRS 12.11. Administrator, assigned instructor, or the owning student."
+      parameters:
+        - name: certificateId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Certificate details.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CertificateSummary' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /certificates/{certificateId}/download:
+    get:
+      tags: [Progress & Certificates]
+      summary: Download the certificate PDF
+      description: "Ref: SRS 12.12, 17.24 (pre-signed, time-limited URL - not a permanent public link)."
+      parameters:
+        - name: certificateId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Pre-signed, time-limited download URL for the certificate PDF.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          downloadUrl: { type: string, format: uri }
+                          expiresInSeconds: { type: integer }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /certificates/verify/{verificationId}:
+    get:
+      tags: [Progress & Certificates]
+      summary: Publicly verify a certificate's authenticity
+      description: >
+        "Ref: SRS 12.13, 12.17. Public, unauthenticated. Any visitor holding
+        a valid, non-guessable verification identifier can confirm
+        authenticity without logging in. Unknown/invalid identifiers return
+        a generic not-found response with no data leakage."
+      security: []
+      parameters:
+        - name: verificationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Certificate is valid.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          valid: { type: boolean, example: true }
+                          studentName: { type: string }
+                          courseName: { type: string }
+                          completionDate: { type: string, format: date }
+                          issueDate: { type: string, format: date }
+                          certificateNumber: { type: string }
+        '404':
+          description: "Certificate not found - no student information is revealed."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  # ======================================================================
+  # Chapter 13: Dashboard & Analytics
+  # ======================================================================
+  /dashboard/admin:
+    get:
+      tags: [Dashboard & Analytics]
+      summary: Get the administrator dashboard
+      description: "Ref: SRS 13.4."
+      x-roles: [ADMINISTRATOR]
+      responses:
+        '200':
+          description: Administrator dashboard KPIs and recent activity.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AdminDashboard' }
+
+  /dashboard/instructor:
+    get:
+      tags: [Dashboard & Analytics]
+      summary: Get the authenticated instructor's dashboard
+      description: "Ref: SRS 13.5."
+      x-roles: [INSTRUCTOR]
+      responses:
+        '200':
+          description: Instructor dashboard KPIs and course summaries.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/InstructorDashboard' }
+
+  /dashboard/student:
+    get:
+      tags: [Dashboard & Analytics]
+      summary: Get the authenticated student's dashboard
+      description: "Ref: SRS 13.6."
+      x-roles: [STUDENT]
+      responses:
+        '200':
+          description: Student dashboard KPIs, continue-learning, and upcoming live classes.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/StudentDashboard' }
+
+  /analytics/{analyticsType}:
+    get:
+      tags: [Dashboard & Analytics]
+      summary: Get a named analytics summary
+      description: >
+        "Ref: SRS 13.9. Administrator-only. analyticsType selects one of
+        the five summaries defined in SRS 13.9: students, courses, revenue,
+        learning, live-classes."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - name: analyticsType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [students, courses, revenue, learning, live-classes]
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Analytics summary (shape depends on analyticsType).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: object }
+
+  # ======================================================================
+  # Chapter 14: Notification Management
+  # ======================================================================
+  /notifications/me:
+    get:
+      tags: [Notifications]
+      summary: List the authenticated user's own notifications
+      description: "Ref: SRS 14.7, 14.11."
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: readStatus
+          in: query
+          schema: { type: string, enum: [UNREAD, READ] }
+      responses:
+        '200':
+          description: Paginated notification list.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/NotificationSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /notifications/{notificationId}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark a notification as read
+      description: "Ref: SRS 14.5. Users may only mark their own notifications."
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Notification marked as read.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Mark all of the authenticated user's notifications as read
+      description: Not explicitly in SRS text but a standard convenience derived from SRS 14.7.
+      responses:
+        '200':
+          description: All notifications marked as read.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: System-wide notification log
+      description: "Ref: SRS 14.13. Administrator-only."
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: userId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: notificationType
+          in: query
+          schema: { type: string }
+        - name: deliveryChannel
+          in: query
+          schema: { type: string, enum: [IN_APP, EMAIL] }
+      responses:
+        '200':
+          description: Paginated system-wide notification log.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/NotificationSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  # ======================================================================
+  # Chapter 15: Reports Management
+  # ======================================================================
+  # NOTE: SRS 15.4-15.6 name ~17 distinct reports across the three roles.
+  # Rather than one near-identical endpoint per report name, this contract
+  # uses a single generic reportKey resource (Ref: SRS 15.3 role-based
+  # access, 15.7-15.11 shared filter/sort/search/generation rules apply
+  # identically to every report).
+  /reports:
+    get:
+      tags: [Reports]
+      summary: List report definitions available to the caller's role
+      description: >
+        "Ref: SRS 15.3. Returns the reportKey values (see ReportKey schema)
+        the caller is permitted to run, based on role."
+      responses:
+        '200':
+          description: Available report definitions.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            reportKey: { $ref: '#/components/schemas/ReportKey' }
+                            title: { type: string }
+
+  /reports/{reportKey}:
+    get:
+      tags: [Reports]
+      summary: Get report data
+      description: >
+        "Ref: SRS 15.4-15.11. Data shape depends on reportKey. Supports
+        filtering (SRS 15.7), sorting (SRS 15.8), and search (SRS 15.10);
+        results are always scoped to the caller's role/ownership (SRS 15.3,
+        15.13)."
+      parameters:
+        - name: reportKey
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/ReportKey' }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortParam'
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: courseId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Report data (shape depends on reportKey), paginated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          generatedAt: { type: string, format: date-time }
+                          content:
+                            type: array
+                            items: { type: object }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+        '403':
+          description: reportKey is not available to the caller's role.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /reports/{reportKey}/export:
+    get:
+      tags: [Reports]
+      summary: Export a report
+      description: >
+        "Ref: SRS 15.9. Exported data reflects the same filters as the
+        matching GET /reports/{reportKey} call. Large exports may be
+        processed asynchronously per SRS 15.15 - in that case this returns
+        202 with a pollable export job instead of the file directly."
+      parameters:
+        - name: reportKey
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/ReportKey' }
+        - name: format
+          in: query
+          required: true
+          schema: { type: string, enum: [PDF, XLSX, CSV] }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: File stream in the requested format.
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: { schema: { type: string, format: binary } }
+            text/csv: { schema: { type: string, format: binary } }
+        '202':
+          description: Export queued for asynchronous processing (large datasets).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          exportJobId: { type: string, format: uuid }
+
+  /reports/exports/{exportJobId}:
+    get:
+      tags: [Reports]
+      summary: Check status of / download an asynchronous report export
+      description: "Ref: SRS 15.15."
+      parameters:
+        - name: exportJobId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Export status, with a download URL once ready.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status: { type: string, enum: [PROCESSING, READY, FAILED] }
+                          downloadUrl: { type: string, format: uri, nullable: true }
+
+  # ======================================================================
+  # Chapter 16: System Settings
+  # ======================================================================
+  /settings:
+    get:
+      tags: [Settings]
+      summary: Get all system settings
+      description: "Ref: SRS 16.1-16.13. Administrator-only. Sensitive credential fields are masked in the response."
+      x-roles: [ADMINISTRATOR]
+      responses:
+        '200':
+          description: All system settings, grouped by category.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SystemSettings' }
+
+  /settings/general:
+    patch:
+      tags: [Settings]
+      summary: Update general/organization settings
+      description: "Ref: SRS 16.4."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GeneralSettings' }
+      responses:
+        '200':
+          description: General settings updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /settings/authentication:
+    patch:
+      tags: [Settings]
+      summary: Update authentication settings
+      description: >
+        "Ref: SRS 16.5. Password length/complexity overrides are bounded -
+        length cannot go below 8 chars, and at least one letter class plus
+        one digit-or-special-character requirement must always stay mandatory."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthenticationSettings' }
+      responses:
+        '200':
+          description: Authentication settings updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '400':
+          description: Requested override violates the minimum policy bounds.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /settings/file-upload:
+    patch:
+      tags: [Settings]
+      summary: Update file upload settings
+      description: "Ref: SRS 16.6."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FileUploadSettings' }
+      responses:
+        '200':
+          description: File upload settings updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /settings/email:
+    patch:
+      tags: [Settings]
+      summary: Update email/SMTP settings
+      description: "Ref: SRS 16.7."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailSettings' }
+      responses:
+        '200':
+          description: Email settings updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /settings/notifications:
+    patch:
+      tags: [Settings]
+      summary: Update notification channel toggles
+      description: "Ref: SRS 16.8."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailNotificationsEnabled: { type: boolean }
+                inAppNotificationsEnabled: { type: boolean }
+      responses:
+        '200':
+          description: Notification settings updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /settings/payment-gateway:
+    patch:
+      tags: [Settings]
+      summary: Update Razorpay payment gateway configuration
+      description: "Ref: SRS 16.9. Key Secret and Webhook Secret are write-only and never returned by GET /settings."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentGatewaySettings' }
+      responses:
+        '200':
+          description: Payment gateway settings updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /settings/live-class:
+    patch:
+      tags: [Settings]
+      summary: Update default live class settings
+      description: "Ref: SRS 16.10. Instructors may override these defaults per class."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                defaultTimeZone: { type: string, example: Asia/Kolkata }
+                defaultMeetingDurationMinutes: { type: integer }
+                defaultReminderMinutesBefore: { type: integer }
+      responses:
+        '200':
+          description: Live class defaults updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /settings/certificate:
+    patch:
+      tags: [Settings]
+      summary: Update certificate branding settings
+      description: "Ref: SRS 16.11. Applies only to newly generated certificates; previously issued certificates are unchanged."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                organizationName: { type: string }
+                organizationLogoUrl: { type: string, format: uri }
+                signatureImageUrl: { type: string, format: uri }
+                footerText: { type: string }
+      responses:
+        '200':
+          description: Certificate settings updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /settings/maintenance-mode:
+    patch:
+      tags: [Settings]
+      summary: Enable or disable maintenance mode
+      description: "Ref: SRS 16.12. While enabled, only administrators may access the system."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        '200':
+          description: Maintenance mode toggled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /settings/backup-configuration:
+    get:
+      tags: [Settings]
+      summary: Get backup configuration
+      description: "Ref: SRS 16.13."
+      x-roles: [ADMINISTRATOR]
+      responses:
+        '200':
+          description: Backup configuration.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BackupSettings' }
+    patch:
+      tags: [Settings]
+      summary: Update backup configuration
+      description: "Ref: SRS 16.13."
+      x-roles: [ADMINISTRATOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BackupSettings' }
+      responses:
+        '200':
+          description: Backup configuration updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+      description: Zero-indexed page number.
+    SizeParam:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    SortParam:
+      name: sort
+      in: query
+      schema: { type: string, example: "createdAt,desc" }
+      description: "Format: {field},{asc|desc}"
+
+  responses:
+    ValidationError:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: Authenticated but not authorized for this resource/role.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    ApiEnvelope:
+      type: object
+      required: [success, message]
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string, example: "Operation completed successfully." }
+
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+
+    PageMeta:
+      type: object
+      properties:
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer }
+        totalPages: { type: integer }
+
+    UserRole:
+      type: string
+      enum: [ADMINISTRATOR, INSTRUCTOR, STUDENT]
+
+    RegisterStudentRequest:
+      type: object
+      required: [firstName, lastName, email, mobileNumber, password, confirmPassword]
+      properties:
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string, format: email }
+        mobileNumber: { type: string }
+        password: { type: string, format: password }
+        confirmPassword: { type: string, format: password }
+
+    UserSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/UserRole' }
+        status: { type: string, enum: [ACTIVE, INACTIVE, BLOCKED] }
+
+    AuthTokenResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        tokenType: { type: string, example: Bearer }
+        expiresInSeconds: { type: integer }
+        user: { $ref: '#/components/schemas/UserSummary' }
+
+    # -- Chapter 4: User Management --
+    UserProfile:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string, format: email }
+        mobileNumber: { type: string }
+        profilePhotoUrl: { type: string, format: uri, nullable: true }
+        dateOfBirth: { type: string, format: date, nullable: true }
+        gender: { type: string, nullable: true }
+        role: { $ref: '#/components/schemas/UserRole' }
+        status: { type: string, enum: [ACTIVE, INACTIVE, BLOCKED] }
+        professionalBio: { type: string, nullable: true, description: Instructor only. }
+        yearsOfExperience: { type: integer, nullable: true, description: Instructor only. }
+        specializations:
+          type: array
+          nullable: true
+          description: Instructor only.
+          items: { type: string, example: "Meditation" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UpdateOwnProfileRequest:
+      type: object
+      description: >
+        Fields accepted depend on the caller's role (Ref: SRS 4.6/4.7);
+        the server ignores fields not applicable to the caller's role.
+      properties:
+        firstName: { type: string }
+        lastName: { type: string }
+        mobileNumber: { type: string }
+        dateOfBirth: { type: string, format: date }
+        gender: { type: string }
+        professionalBio: { type: string }
+        yearsOfExperience: { type: integer }
+        specializations:
+          type: array
+          items: { type: string }
+
+    UserFullProfile:
+      description: "Ref: SRS 4.12."
+      allOf:
+        - $ref: '#/components/schemas/UserProfile'
+        - type: object
+          properties:
+            subscriptions:
+              type: array
+              description: Students only.
+              items: { $ref: '#/components/schemas/SubscriptionSummary' }
+            certificatesEarned:
+              type: array
+              description: Students only.
+              items: { $ref: '#/components/schemas/CertificateSummary' }
+            assignedCourses:
+              type: array
+              description: Instructors only.
+              items: { $ref: '#/components/schemas/CourseSummary' }
+            studentCount:
+              type: integer
+              description: Instructors only - total students across assigned courses.
+
+    # -- Chapter 5: Course Management --
+    CourseSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        shortDescription: { type: string }
+        thumbnailUrl: { type: string, format: uri }
+        language: { type: string }
+        difficultyLevel: { type: string, enum: [BEGINNER, INTERMEDIATE, ADVANCED] }
+        estimatedDurationMinutes: { type: integer }
+        status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+        instructors:
+          type: array
+          items: { $ref: '#/components/schemas/UserSummary' }
+        categories:
+          type: array
+          items: { $ref: '#/components/schemas/CategorySummary' }
+        lessonCount: { type: integer }
+        publishedAt: { type: string, format: date-time, nullable: true }
+
+    CourseDetail:
+      allOf:
+        - $ref: '#/components/schemas/CourseSummary'
+        - type: object
+          properties:
+            detailedDescription: { type: string }
+            subscriptionPlans:
+              type: array
+              items: { $ref: '#/components/schemas/SubscriptionPlanSummary' }
+            previewLessonId: { type: string, format: uuid, nullable: true }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+
+    CreateCourseRequest:
+      type: object
+      required: [title, shortDescription, detailedDescription, thumbnailUrl, language, difficultyLevel, instructorIds, categoryIds]
+      properties:
+        title: { type: string }
+        shortDescription: { type: string }
+        detailedDescription: { type: string }
+        thumbnailUrl: { type: string, format: uri }
+        language: { type: string }
+        difficultyLevel: { type: string, enum: [BEGINNER, INTERMEDIATE, ADVANCED] }
+        estimatedDurationMinutes: { type: integer }
+        instructorIds:
+          type: array
+          minItems: 1
+          items: { type: string, format: uuid }
+        categoryIds:
+          type: array
+          minItems: 1
+          items: { type: string, format: uuid }
+
+    # -- Chapter 6: Category Management --
+    CategorySummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        iconUrl: { type: string, format: uri, nullable: true }
+        displayOrder: { type: integer }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        courseCount: { type: integer }
+
+    CreateCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        iconUrl: { type: string, format: uri }
+        displayOrder: { type: integer, minimum: 1 }
+
+    # -- Chapter 7: Section & Lesson Management --
+    SectionDetail:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        title: { type: string }
+        shortDescription: { type: string, nullable: true }
+        displayOrder: { type: integer }
+        status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+        lessons:
+          type: array
+          items: { $ref: '#/components/schemas/LessonSummary' }
+
+    CreateSectionRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        shortDescription: { type: string }
+        displayOrder: { type: integer }
+
+    LessonSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sectionId: { type: string, format: uuid }
+        title: { type: string }
+        shortDescription: { type: string, nullable: true }
+        videoDurationSeconds: { type: integer }
+        thumbnailUrl: { type: string, format: uri, nullable: true }
+        displayOrder: { type: integer }
+        status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+        isPreview: { type: boolean }
+        completionStatus:
+          type: string
+          nullable: true
+          description: Populated only for the authenticated student caller (Ref SRS 12.3).
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
+
+    LessonDetail:
+      allOf:
+        - $ref: '#/components/schemas/LessonSummary'
+        - type: object
+          properties:
+            detailedDescription: { type: string, nullable: true }
+            videoUrl:
+              type: string
+              format: uri
+              description: >
+                Private/unlisted, domain-restricted hosting required
+                (Ref SRS 7.8).
+            resources:
+              type: array
+              items: { $ref: '#/components/schemas/LessonResourceSummary' }
+
+    CreateLessonRequest:
+      type: object
+      required: [title, videoUrl]
+      properties:
+        title: { type: string }
+        detailedDescription: { type: string }
+        videoUrl: { type: string, format: uri }
+        thumbnailUrl: { type: string, format: uri }
+        displayOrder: { type: integer }
+
+    # -- Chapter 8: Lesson Resources & File Management --
+    LessonResourceSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        lessonId: { type: string, format: uuid }
+        resourceType: { type: string, enum: [VIDEO, PDF, IMAGE, AUDIO, ZIP, EXTERNAL_LINK] }
+        displayName: { type: string }
+        description: { type: string, nullable: true }
+        externalUrl: { type: string, format: uri, nullable: true }
+        fileReference: { type: string, nullable: true }
+        fileSizeBytes: { type: integer, nullable: true }
+        displayOrder: { type: integer }
+        status: { type: string, enum: [ACTIVE, INACTIVE, ARCHIVED] }
+
+    CreateLessonResourceRequest:
+      type: object
+      required: [resourceType, displayName]
+      properties:
+        resourceType: { type: string, enum: [VIDEO, PDF, IMAGE, AUDIO, ZIP, EXTERNAL_LINK] }
+        displayName: { type: string }
+        description: { type: string }
+        externalUrl:
+          type: string
+          format: uri
+          description: Required for VIDEO and EXTERNAL_LINK.
+        fileReference:
+          type: string
+          description: Required for PDF/IMAGE/AUDIO/ZIP; obtained from POST /lesson-resources/upload-url.
+        displayOrder: { type: integer }
+
+    # -- Chapter 9: Subscription Plans & Student Enrollments --
+    SubscriptionPlanSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        planName: { type: string, example: Quarterly }
+        description: { type: string, nullable: true }
+        price: { type: number, format: decimal }
+        currency: { type: string, example: INR }
+        duration: { type: integer, example: 3 }
+        durationUnit: { type: string, enum: [DAY, MONTH, YEAR] }
+        status: { type: string, enum: [ACTIVE, INACTIVE, ARCHIVED] }
+
+    CreateSubscriptionPlanRequest:
+      type: object
+      required: [planName, price, currency, duration, durationUnit]
+      properties:
+        planName: { type: string }
+        description: { type: string }
+        price: { type: number, format: decimal }
+        currency: { type: string, default: INR }
+        duration: { type: integer, minimum: 1 }
+        durationUnit: { type: string, enum: [DAY, MONTH, YEAR] }
+
+    SubscriptionSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        course: { $ref: '#/components/schemas/CourseSummary' }
+        subscriptionPlanId: { type: string, format: uuid }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        status: { type: string, enum: [ACTIVE, EXPIRED, CANCELLED, PENDING] }
+        purchaseDate: { type: string, format: date-time }
+
+    # -- Chapter 10: Payment Management --
+    OrderSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        course: { $ref: '#/components/schemas/CourseSummary' }
+        subscriptionPlanId: { type: string, format: uuid }
+        amount: { type: number, format: decimal }
+        currency: { type: string, example: INR }
+        status: { type: string, enum: [PENDING, PAID, FAILED, CANCELLED] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PaymentSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        amount: { type: number, format: decimal }
+        currency: { type: string, example: INR }
+        paymentMethod: { type: string, enum: [CREDIT_CARD, DEBIT_CARD, UPI, NET_BANKING, WALLET] }
+        transactionReference:
+          type: string
+          description: Razorpay payment ID (Ref SRS 10.11).
+        status: { type: string, enum: [PENDING, SUCCESS, FAILED, CANCELLED] }
+        paymentDate: { type: string, format: date-time }
+
+    # -- Chapter 11: Live Classes --
+    LiveClassSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        scheduledDate: { type: string, format: date }
+        scheduledTime: { type: string, example: "07:00" }
+        meetingUrl:
+          type: string
+          format: uri
+          description: Visible only to authorized enrolled students/instructors/admins.
+        recordingUrl: { type: string, format: uri, nullable: true }
+        status: { type: string, enum: [SCHEDULED, CANCELLED, COMPLETED] }
+
+    CreateLiveClassRequest:
+      type: object
+      required: [title, scheduledDate, scheduledTime, meetingUrl]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        scheduledDate: { type: string, format: date }
+        scheduledTime: { type: string, example: "07:00" }
+        meetingUrl: { type: string, format: uri }
+        meetingPassword: { type: string }
+
+    # -- Chapter 12: Student Progress Tracking & Certificate Management --
+    CourseProgressSummary:
+      type: object
+      properties:
+        studentId: { type: string, format: uuid }
+        courseId: { type: string, format: uuid }
+        progressPercentage: { type: number, format: float, example: 75.0 }
+        completedLessons: { type: integer }
+        totalPublishedLessons: { type: integer }
+        lastCompletedLessonId: { type: string, format: uuid, nullable: true }
+        completionStatus: { type: string, enum: [IN_PROGRESS, COMPLETED] }
+        courseCompletedAt: { type: string, format: date-time, nullable: true }
+
+    CertificateSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        certificateNumber: { type: string }
+        verificationId:
+          type: string
+          format: uuid
+          description: Non-guessable identifier used by the public verification endpoint.
+        studentId: { type: string, format: uuid }
+        studentName: { type: string }
+        courseId: { type: string, format: uuid }
+        courseName: { type: string }
+        instructorNames:
+          type: array
+          items: { type: string }
+        completionDate: { type: string, format: date }
+        issueDate: { type: string, format: date }
+
+    # -- Chapter 13: Dashboard & Analytics --
+    AdminDashboard:
+      type: object
+      description: "Ref: SRS 13.4."
+      properties:
+        totalRegisteredStudents: { type: integer }
+        totalActiveStudents: { type: integer }
+        totalInstructors: { type: integer }
+        totalCourses: { type: integer }
+        publishedCourses: { type: integer }
+        draftCourses: { type: integer }
+        archivedCourses: { type: integer }
+        totalCategories: { type: integer }
+        totalLiveClasses: { type: integer }
+        scheduledLiveClasses: { type: integer }
+        completedLiveClasses: { type: integer }
+        totalSubscriptionPlans: { type: integer }
+        activeSubscriptions: { type: integer }
+        expiredSubscriptions: { type: integer }
+        totalOrders: { type: integer }
+        successfulPayments: { type: integer }
+        failedPayments: { type: integer }
+        totalRevenue: { type: number, format: decimal }
+        certificatesIssued: { type: integer }
+        recentActivities:
+          type: array
+          items: { $ref: '#/components/schemas/RecentActivity' }
+
+    InstructorDashboard:
+      type: object
+      description: "Ref: SRS 13.5."
+      properties:
+        totalAssignedCourses: { type: integer }
+        publishedCourses: { type: integer }
+        draftCourses: { type: integer }
+        totalEnrolledStudents: { type: integer }
+        upcomingLiveClasses: { type: integer }
+        completedLiveClasses: { type: integer }
+        certificatesIssuedForAssignedCourses: { type: integer }
+        courseSummaries:
+          type: array
+          items:
+            type: object
+            properties:
+              courseId: { type: string, format: uuid }
+              courseName: { type: string }
+              totalStudents: { type: integer }
+              activeStudents: { type: integer }
+              nextLiveClassAt: { type: string, format: date-time, nullable: true }
+              courseStatus: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+        recentActivities:
+          type: array
+          items: { $ref: '#/components/schemas/RecentActivity' }
+
+    StudentDashboard:
+      type: object
+      description: "Ref: SRS 13.6."
+      properties:
+        activeCourses: { type: integer }
+        completedCourses: { type: integer }
+        overallLearningProgress: { type: number, format: float }
+        upcomingLiveClasses:
+          type: array
+          items: { $ref: '#/components/schemas/LiveClassSummary' }
+        continueLearning:
+          type: object
+          nullable: true
+          properties:
+            courseId: { type: string, format: uuid }
+            lastCompletedLessonId: { type: string, format: uuid, nullable: true }
+            nextLessonId: { type: string, format: uuid, nullable: true }
+        myCourses:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/CourseSummary'
+              - type: object
+                properties:
+                  progressPercentage: { type: number, format: float }
+                  subscriptionExpiryDate: { type: string, format: date }
+        certificates:
+          type: array
+          items: { $ref: '#/components/schemas/CertificateSummary' }
+        recentActivities:
+          type: array
+          items: { $ref: '#/components/schemas/RecentActivity' }
+
+    RecentActivity:
+      type: object
+      properties:
+        type: { type: string, example: PAYMENT_SUCCESSFUL }
+        message: { type: string }
+        occurredAt: { type: string, format: date-time }
+
+    # -- Chapter 14: Notification Management --
+    NotificationSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        recipientUserId: { type: string, format: uuid }
+        title: { type: string }
+        message: { type: string }
+        notificationType: { type: string, enum: [IN_APP, EMAIL] }
+        relatedModule: { type: string, nullable: true }
+        relatedEntityId: { type: string, format: uuid, nullable: true }
+        readStatus: { type: string, enum: [UNREAD, READ] }
+        createdAt: { type: string, format: date-time }
+        readAt: { type: string, format: date-time, nullable: true }
+
+    # -- Chapter 15: Reports Management --
+    ReportKey:
+      type: string
+      description: "Ref: SRS 15.4 (student), 15.5 (instructor), 15.6 (administrator)."
+      enum:
+        # Student (SRS 15.4)
+        - STUDENT_MY_COURSES
+        - STUDENT_PAYMENT_HISTORY
+        - STUDENT_CERTIFICATES
+        - STUDENT_LIVE_CLASS_ATTENDANCE
+        # Instructor (SRS 15.5)
+        - INSTRUCTOR_COURSE_ENROLLMENT
+        - INSTRUCTOR_STUDENT_PROGRESS
+        - INSTRUCTOR_LIVE_CLASSES
+        - INSTRUCTOR_CERTIFICATES
+        # Administrator (SRS 15.6)
+        - ADMIN_USERS
+        - ADMIN_COURSES
+        - ADMIN_CATEGORIES
+        - ADMIN_SUBSCRIPTIONS
+        - ADMIN_PAYMENTS
+        - ADMIN_LIVE_CLASSES
+        - ADMIN_CERTIFICATES
+        - ADMIN_REVENUE
+        - ADMIN_LEARNING_ANALYTICS
+
+    # -- Chapter 16: System Settings --
+    GeneralSettings:
+      type: object
+      properties:
+        organizationName: { type: string }
+        organizationLogoUrl: { type: string, format: uri }
+        supportEmail: { type: string, format: email }
+        supportPhone: { type: string }
+        websiteUrl: { type: string, format: uri }
+        organizationAddress: { type: string }
+
+    AuthenticationSettings:
+      type: object
+      properties:
+        sessionTimeoutMinutes: { type: integer }
+        maxLoginAttempts: { type: integer }
+        passwordMinLength: { type: integer, minimum: 8, maximum: 64 }
+        passwordComplexity:
+          type: object
+          description: At least one letter class and one digit-or-special requirement must remain true.
+          properties:
+            requireUppercase: { type: boolean }
+            requireLowercase: { type: boolean }
+            requireDigit: { type: boolean }
+            requireSpecialChar: { type: boolean }
+
+    FileUploadSettings:
+      type: object
+      properties:
+        maxUploadSizeMb: { type: integer }
+        allowedFileTypes:
+          type: array
+          items: { type: string, example: pdf }
+        maxFilesPerUpload: { type: integer }
+
+    EmailSettings:
+      type: object
+      properties:
+        smtpHost: { type: string }
+        smtpPort: { type: integer }
+        senderEmail: { type: string, format: email }
+        senderDisplayName: { type: string }
+        encryptionType: { type: string, enum: [SSL, TLS] }
+
+    PaymentGatewaySettings:
+      type: object
+      description: "Ref: SRS 16.9."
+      properties:
+        razorpayKeyId: { type: string }
+        razorpayKeySecret: { type: string, writeOnly: true }
+        razorpayWebhookSecret: { type: string, writeOnly: true }
+        webhookCallbackUrl: { type: string, format: uri }
+        environment: { type: string, enum: [SANDBOX, PRODUCTION] }
+
+    BackupSettings:
+      type: object
+      properties:
+        backupLocation: { type: string }
+        backupFrequency: { type: string, enum: [DAILY, WEEKLY] }
+        retentionDays: { type: integer }
+
+    SystemSettings:
+      type: object
+      properties:
+        general: { $ref: '#/components/schemas/GeneralSettings' }
+        authentication: { $ref: '#/components/schemas/AuthenticationSettings' }
+        fileUpload: { $ref: '#/components/schemas/FileUploadSettings' }
+        email: { $ref: '#/components/schemas/EmailSettings' }
+        notifications:
+          type: object
+          properties:
+            emailNotificationsEnabled: { type: boolean }
+            inAppNotificationsEnabled: { type: boolean }
+        paymentGateway: { $ref: '#/components/schemas/PaymentGatewaySettings' }
+        backup: { $ref: '#/components/schemas/BackupSettings' }
+        maintenanceModeEnabled: { type: boolean }
