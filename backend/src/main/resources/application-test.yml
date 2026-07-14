@@ -1,0 +1,13 @@
+# Ref: SRS 19.17 - Testing environment. Datasource is intentionally absent
+# here: integration tests use Testcontainers (see pom.xml) to spin up a
+# throwaway Postgres container per test run via @ServiceConnection /
+# DynamicPropertySource, rather than pointing at any shared database.
+spring:
+  jpa:
+    show-sql: false
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:test-only-insecure-secret-change-me-32-bytes-min}
+  settings:
+    encryption-key: ${SETTINGS_ENCRYPTION_KEY:test-only-settings-encryption-key-change-me}

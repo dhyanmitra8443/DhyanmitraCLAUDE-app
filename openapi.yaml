@@ -2695,6 +2695,17 @@ paths:
                         type: object
                         properties:
                           generatedAt: { type: string, format: date-time }
+                          columns:
+                            type: array
+                            description: >
+                              "The report's columns, in display order. Returned so a client
+                              can render headers without hardcoding a column list per report,
+                              and still render them when the result set is empty."
+                            items:
+                              type: object
+                              properties:
+                                key: { type: string }
+                                label: { type: string }
                           content:
                             type: array
                             items: { type: object }
@@ -2729,6 +2740,15 @@ paths:
         - name: dateTo
           in: query
           schema: { type: string, format: date }
+        # The same filters GET /reports/{reportKey} accepts - without these, an
+        # export could not actually reflect "the same filters" as the matching
+        # data call, which is what SRS 15.9 requires.
+        - name: courseId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: search
+          in: query
+          schema: { type: string }
       responses:
         '200':
           description: File stream in the requested format.
@@ -2774,7 +2794,20 @@ paths:
                         type: object
                         properties:
                           status: { type: string, enum: [PROCESSING, READY, FAILED] }
-                          downloadUrl: { type: string, format: uri, nullable: true }
+                          downloadUrl:
+                            type: string
+                            format: uri
+                            nullable: true
+                            description: >
+                              "Null until status is READY. A short-lived signed link
+                              (not a permanent URL); re-poll to obtain a fresh one
+                              after it expires."
+                          expiresInSeconds: { type: integer, nullable: true }
+        '403':
+          description: The export was requested by a different user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   # ======================================================================
   # Chapter 16: System Settings
@@ -2927,12 +2960,7 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              properties:
-                defaultTimeZone: { type: string, example: Asia/Kolkata }
-                defaultMeetingDurationMinutes: { type: integer }
-                defaultReminderMinutesBefore: { type: integer }
+            schema: { $ref: '#/components/schemas/LiveClassSettings' }
       responses:
         '200':
           description: Live class defaults updated.
@@ -2950,13 +2978,7 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              properties:
-                organizationName: { type: string }
-                organizationLogoUrl: { type: string, format: uri }
-                signatureImageUrl: { type: string, format: uri }
-                footerText: { type: string }
+            schema: { $ref: '#/components/schemas/CertificateSettings' }
       responses:
         '200':
           description: Certificate settings updated.
@@ -3658,11 +3680,32 @@ components:
 
     EmailSettings:
       type: object
+      description: >
+        "Ref: SRS 16.7 - including the chapter's 'Authentication Credentials'.
+        smtpPassword is write-only: it is stored encrypted and never returned
+        by GET /settings (see EmailSettingsView)."
       properties:
         smtpHost: { type: string }
         smtpPort: { type: integer }
         senderEmail: { type: string, format: email }
         senderDisplayName: { type: string }
+        smtpUsername: { type: string }
+        smtpPassword: { type: string, writeOnly: true }
+        encryptionType: { type: string, enum: [SSL, TLS] }
+
+    EmailSettingsView:
+      type: object
+      description: >
+        "Ref: SRS 16.7 - the read shape of EmailSettings. The SMTP password is
+        never echoed back; smtpPasswordConfigured tells an admin UI whether one
+        is set without exposing it."
+      properties:
+        smtpHost: { type: string }
+        smtpPort: { type: integer }
+        senderEmail: { type: string, format: email }
+        senderDisplayName: { type: string }
+        smtpUsername: { type: string }
+        smtpPasswordConfigured: { type: boolean }
         encryptionType: { type: string, enum: [SSL, TLS] }
 
     PaymentGatewaySettings:
@@ -3675,6 +3718,36 @@ components:
         webhookCallbackUrl: { type: string, format: uri }
         environment: { type: string, enum: [SANDBOX, PRODUCTION] }
 
+    PaymentGatewaySettingsView:
+      type: object
+      description: >
+        "Ref: SRS 16.9 - the read shape of PaymentGatewaySettings. Key Secret and
+        Webhook Secret are write-only, so GET reports only whether each is
+        configured."
+      properties:
+        razorpayKeyId: { type: string }
+        razorpayKeySecretConfigured: { type: boolean }
+        razorpayWebhookSecretConfigured: { type: boolean }
+        webhookCallbackUrl: { type: string, format: uri }
+        environment: { type: string, enum: [SANDBOX, PRODUCTION] }
+
+    LiveClassSettings:
+      type: object
+      description: "Ref: SRS 16.10 - defaults; instructors may override these per class."
+      properties:
+        defaultTimeZone: { type: string, example: Asia/Kolkata }
+        defaultMeetingDurationMinutes: { type: integer }
+        defaultReminderMinutesBefore: { type: integer }
+
+    CertificateSettings:
+      type: object
+      description: "Ref: SRS 16.11 - applies only to newly generated certificates."
+      properties:
+        organizationName: { type: string }
+        organizationLogoUrl: { type: string, format: uri }
+        signatureImageUrl: { type: string, format: uri }
+        footerText: { type: string }
+
     BackupSettings:
       type: object
       properties:
@@ -3684,16 +3757,26 @@ components:
 
     SystemSettings:
       type: object
+      description: >
+        "Ref: SRS 16.1-16.13. Every settings group that has a PATCH endpoint is
+        also readable here - including liveClass (16.10) and certificate (16.11),
+        without which an admin UI could write those groups but never populate
+        their forms. Credential fields are never returned; the email and
+        paymentGateway groups use their *View shapes, which report only whether
+        each secret is configured."
       properties:
         general: { $ref: '#/components/schemas/GeneralSettings' }
         authentication: { $ref: '#/components/schemas/AuthenticationSettings' }
         fileUpload: { $ref: '#/components/schemas/FileUploadSettings' }
-        email: { $ref: '#/components/schemas/EmailSettings' }
+        email: { $ref: '#/components/schemas/EmailSettingsView' }
         notifications:
           type: object
           properties:
             emailNotificationsEnabled: { type: boolean }
             inAppNotificationsEnabled: { type: boolean }
-        paymentGateway: { $ref: '#/components/schemas/PaymentGatewaySettings' }
+        paymentGateway: { $ref: '#/components/schemas/PaymentGatewaySettingsView' }
+        liveClass: { $ref: '#/components/schemas/LiveClassSettings' }
+        certificate: { $ref: '#/components/schemas/CertificateSettings' }
         backup: { $ref: '#/components/schemas/BackupSettings' }
         maintenanceModeEnabled: { type: boolean }
+        updatedAt: { type: string, format: date-time }

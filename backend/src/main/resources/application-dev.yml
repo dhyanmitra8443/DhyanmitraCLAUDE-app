@@ -1,0 +1,34 @@
+# Ref: SRS 19.17 - Development environment: local docker-compose Postgres
+# (see docker-compose.yml at repo root). Deliberately uses different
+# container name/ports than the unrelated C:\Dhyan-app project's containers
+# on this same machine, so the two never collide.
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5434}/${DB_NAME:dhyanmitra_claude_db}
+    username: ${DB_USERNAME:dhyanmitra_claude_user}
+    password: ${DB_PASSWORD:dev_local_password_change_me}
+  mail:
+    # Defaults target the local Mailpit catcher (docker-compose.yml); set
+    # SMTP_HOST/PORT/USERNAME/PASSWORD/AUTH/STARTTLS in a git-ignored .env
+    # file at the repo root to point this at a real SMTP provider instead
+    # (Ref: SRS 18.24 - secrets never hardcoded or committed).
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:false}
+          starttls:
+            enable: ${SMTP_STARTTLS:false}
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.lms: DEBUG
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-32-bytes-min}
+  settings:
+    encryption-key: ${SETTINGS_ENCRYPTION_KEY:dev-only-settings-encryption-key-change-me}

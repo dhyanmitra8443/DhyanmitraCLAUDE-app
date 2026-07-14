@@ -1,0 +1,20 @@
+# Ref: SRS 19.17, 19.7 - Production environment. Same "no defaults for
+# secrets" rule as staging; additionally tightens logging and disables SQL
+# statement logging entirely (Ref: SRS 17.9 - never log sensitive data).
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: WARN
+    com.lms: INFO

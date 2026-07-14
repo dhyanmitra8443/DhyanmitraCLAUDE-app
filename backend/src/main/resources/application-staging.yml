@@ -1,0 +1,17 @@
+# Ref: SRS 19.17, 19.7 - Staging environment. Every value comes from an
+# environment variable with no default fallback for secrets - if one is
+# missing, startup should fail loudly rather than silently using a dev value.
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+
+logging:
+  level:
+    com.lms: INFO

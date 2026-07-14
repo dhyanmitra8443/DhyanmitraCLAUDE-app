@@ -1,1 +1,11 @@
 .claude/
+.env
+
+# Maven build output - the backend image compiles this from source inside
+# Docker, so compiled classes and the packaged jar never belong in the repo.
+target/
+
+# Locally uploaded/generated files (profile photos, lesson resources, issued
+# certificates, report exports). These live in a Docker volume in dev and in
+# object storage in staging/prod - never in git.
+uploads/
