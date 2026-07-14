@@ -5,6 +5,20 @@
 spring:
   jpa:
     show-sql: false
+  mail:
+    # MailSenderAutoConfiguration only creates the JavaMailSender bean when a
+    # host is set, and EmailService requires one - without this the whole
+    # context fails to start under the test profile. Nothing is ever sent: no
+    # connection is opened until a message is actually dispatched, and tests
+    # do not dispatch any.
+    host: localhost
+    port: 1025
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
 
 app:
   jwt:

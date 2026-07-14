@@ -21,6 +21,12 @@
     <java.version>21</java.version>
     <jjwt.version>0.12.6</jjwt.version>
     <springdoc.version>2.6.0</springdoc.version>
+    <!-- Overrides the 1.18.34 that Spring Boot 3.3.5 pins, which cannot run on
+         a JDK newer than 22 (Lombok reads compiler internals, so it fails hard
+         rather than degrading). The Docker build uses JDK 21, but a developer's
+         machine may have a newer JDK installed, and the build must work on both
+         - the compiler release level stays 21 either way. -->
+    <lombok.version>1.18.38</lombok.version>
   </properties>
 
   <dependencies>
@@ -147,10 +153,15 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- 1.20.3's bundled docker-java negotiates an API version that Docker
+           Engine 29+ rejects outright (a 400 with a stub /info body), which
+           surfaces as the misleading "Could not find a valid Docker
+           environment" even though Docker is running fine. 1.21.3 speaks the
+           current API. -->
       <dependency>
         <groupId>org.testcontainers</groupId>
         <artifactId>testcontainers-bom</artifactId>
-        <version>1.20.3</version>
+        <version>1.21.3</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -159,6 +170,42 @@
 
   <build>
     <plugins>
+      <!-- Lombok must be declared as an explicit annotation processor path, not
+           just left on the classpath: since JDK 23 javac no longer discovers
+           processors from the classpath by default, so a developer on a newer
+           JDK than the Docker build's 21 would otherwise get a wall of
+           "cannot find symbol" errors for every Lombok-generated getter. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
+      <!-- Docker Engine 29 rejects any API version below 1.44, but the
+           docker-java client bundled with Testcontainers still negotiates 1.32
+           and gets back a bare 400 - which Testcontainers reports as the very
+           misleading "Could not find a valid Docker environment", as though
+           Docker were not running at all. Pinning a supported version here is
+           what makes `mvnw test` work out of the box; drop it once
+           Testcontainers ships a docker-java that negotiates correctly. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <api.version>1.44</api.version>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
