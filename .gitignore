@@ -1,5 +1,9 @@
 .claude/
-.env
+# Ref: SRS 18.7 - real secrets never committed. .env.production lives only
+# on the server; the .example template (placeholders, no real values) is
+# fine to commit and is explicitly un-ignored below.
+.env*
+!.env.production.example
 
 # Maven build output - the backend image compiles this from source inside
 # Docker, so compiled classes and the packaged jar never belong in the repo.
