@@ -45,6 +45,11 @@ app:
     refresh-token-ttl-seconds: ${JWT_REFRESH_TTL_SECONDS:2592000} # 30 days
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  frontend:
+    # Ref: SRS 3.5, 3.10 - base URL used to build clickable links in
+    # transactional emails (password reset, instructor invitation) so the
+    # recipient can just click through instead of copy-pasting a raw token.
+    url: ${FRONTEND_URL:http://localhost:3000}
   mail:
     from: ${MAIL_FROM:no-reply@dhyanmitra.com}
   storage:

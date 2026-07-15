@@ -109,11 +109,19 @@ public class CourseService {
         Course course = new Course();
         applyRequest(course, request);
         course.setStatus(CourseStatus.DRAFT);
-        return toDetail(courseRepository.save(course));
+        // saveAndFlush, not save: toDetail() immediately runs
+        // countByCategories_Id, a derived query against this same `courses`
+        // table. Hibernate must auto-flush this pending insert first so the
+        // count is accurate - but Hibernate 6.5.3 NPEs in
+        // GeneratedValuesProcessor when @Generated(UPDATE) properties
+        // (BaseEntity.updatedAt) are reprocessed via an *implicit* auto-flush
+        // rather than an explicit one. Flushing here ourselves avoids that
+        // code path entirely.
+        return toDetail(courseRepository.saveAndFlush(course));
     }
 
     @Transactional
-    public CourseDetailResponse updateCourse(UUID courseId, CreateCourseRequest request, UserPrincipal principal) {
+    public void updateCourse(UUID courseId, CreateCourseRequest request, UserPrincipal principal) {
         Course course = findCourseOrThrow(courseId);
         requireAdminOrAssignedInstructor(course, principal);
 
@@ -122,7 +130,7 @@ public class CourseService {
         }
 
         applyRequest(course, request);
-        return toDetail(courseRepository.save(course));
+        courseRepository.save(course);
     }
 
     @Transactional
@@ -200,6 +208,11 @@ public class CourseService {
     }
 
     private void applyRequest(Course course, CreateCourseRequest request) {
+        applyFields(course, request);
+        applyRelations(course, request);
+    }
+
+    private void applyFields(Course course, CreateCourseRequest request) {
         course.setTitle(request.title());
         course.setShortDescription(request.shortDescription());
         course.setDetailedDescription(request.detailedDescription());
@@ -207,11 +220,21 @@ public class CourseService {
         course.setLanguage(request.language());
         course.setDifficultyLevel(request.difficultyLevel());
         course.setEstimatedDurationMinutes(request.estimatedDurationMinutes());
+    }
 
-        Set<User> instructors = findInstructorsOrThrow(request.instructorIds());
-        course.setInstructors(instructors);
-
-        course.setCategories(findCategoriesOrThrow(request.categoryIds()));
+    // Mutates the existing managed collections in place (clear+addAll)
+    // rather than course.setInstructors(newSet)/setCategories(newSet). The
+    // Lombok-generated setter swaps in a brand new HashSet, replacing
+    // Hibernate's PersistentSet wrapper - Hibernate then does a full
+    // remove-all+insert-all on the join table instead of a diff, and that
+    // combined with @Generated(UPDATE) on BaseEntity.updatedAt NPEs in
+    // GeneratedValuesProcessor at commit (confirmed: this reproduced even in
+    // total isolation, with no field changes in the same transaction).
+    private void applyRelations(Course course, CreateCourseRequest request) {
+        course.getInstructors().clear();
+        course.getInstructors().addAll(findInstructorsOrThrow(request.instructorIds()));
+        course.getCategories().clear();
+        course.getCategories().addAll(findCategoriesOrThrow(request.categoryIds()));
     }
 
     private Set<User> findInstructorsOrThrow(Set<UUID> instructorIds) {

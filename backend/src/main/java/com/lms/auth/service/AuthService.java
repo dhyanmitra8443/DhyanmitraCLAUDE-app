@@ -31,6 +31,7 @@ import com.lms.user.entity.UserRole;
 import com.lms.user.entity.UserStatus;
 import com.lms.user.repository.UserRepository;
 import io.jsonwebtoken.Claims;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -60,6 +61,7 @@ public class AuthService {
     private final JwtProperties jwtProperties;
     private final SecureTokenGenerator tokenGenerator;
     private final EmailService emailService;
+    private final String frontendUrl;
 
     public AuthService(
             UserRepository userRepository,
@@ -70,7 +72,8 @@ public class AuthService {
             JwtService jwtService,
             JwtProperties jwtProperties,
             SecureTokenGenerator tokenGenerator,
-            EmailService emailService
+            EmailService emailService,
+            @Value("${app.frontend.url}") String frontendUrl
     ) {
         this.userRepository = userRepository;
         this.userSessionRepository = userSessionRepository;
@@ -81,6 +84,7 @@ public class AuthService {
         this.jwtProperties = jwtProperties;
         this.tokenGenerator = tokenGenerator;
         this.emailService = emailService;
+        this.frontendUrl = frontendUrl;
     }
 
     @Transactional
@@ -183,8 +187,10 @@ public class AuthService {
             resetToken.setExpiresAt(OffsetDateTime.now().plus(PASSWORD_RESET_TTL));
             authTokenRepository.save(resetToken);
 
+            String resetUrl = frontendUrl + "/reset-password?token=" + rawToken;
             emailService.send(user.getEmail(), "Reset your Dhyan Mitra password",
-                    "Use this token to reset your password: " + rawToken);
+                    "Reset your password: " + resetUrl
+                            + "\n\nOr use this token directly: " + rawToken);
         });
     }
 
@@ -238,8 +244,10 @@ public class AuthService {
         invitation.setExpiresAt(OffsetDateTime.now().plus(INVITATION_TTL));
         invitationRepository.save(invitation);
 
+        String acceptUrl = frontendUrl + "/accept-invitation?token=" + rawToken;
         emailService.send(request.email(), "You're invited to join Dhyan Mitra as an instructor",
-                "Use this token to accept your invitation: " + rawToken);
+                "Accept your invitation: " + acceptUrl
+                        + "\n\nOr use this token directly: " + rawToken);
     }
 
     public InvitationPreviewResponse validateInvitation(String rawToken) {

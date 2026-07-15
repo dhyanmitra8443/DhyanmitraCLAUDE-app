@@ -77,7 +77,8 @@ public class CourseController {
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody CreateCourseRequest request
     ) {
-        return ResponseEntity.ok(ApiResponse.of("Course updated.", courseService.updateCourse(courseId, request, principal)));
+        courseService.updateCourse(courseId, request, principal);
+        return ResponseEntity.ok(ApiResponse.of("Course updated.", courseService.getCourseDetail(courseId)));
     }
 
     @PostMapping("/{courseId}/publish")

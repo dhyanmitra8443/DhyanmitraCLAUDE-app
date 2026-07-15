@@ -50,6 +50,16 @@ public class SecurityConfig {
                 new AntPathRequestMatcher("/api/v1/auth/instructors/accept-invitation", HttpMethod.POST.name()),
                 new AntPathRequestMatcher("/api/v1/courses/**", HttpMethod.GET.name()),
                 new AntPathRequestMatcher("/api/v1/categories/**", HttpMethod.GET.name()),
+                // Ref: SRS 7.11 - the designated preview lesson (and its
+                // resources) must be viewable without authentication;
+                // LessonService.assertAccess/LessonResourceService already
+                // enforce the real per-lesson rule (admin/assigned instructor,
+                // published+preview, or an active subscription) - these three
+                // GETs were missing from the allowlist, so an anonymous
+                // request never reached that logic at all.
+                new AntPathRequestMatcher("/api/v1/lessons/*", HttpMethod.GET.name()),
+                new AntPathRequestMatcher("/api/v1/lessons/*/resources", HttpMethod.GET.name()),
+                new AntPathRequestMatcher("/api/v1/resources/*/download", HttpMethod.GET.name()),
                 new AntPathRequestMatcher("/api/v1/payments/razorpay/webhook", HttpMethod.POST.name()),
                 new AntPathRequestMatcher("/api/v1/certificates/verify/*", HttpMethod.GET.name()),
                 new AntPathRequestMatcher("/uploads/**", HttpMethod.GET.name()),
