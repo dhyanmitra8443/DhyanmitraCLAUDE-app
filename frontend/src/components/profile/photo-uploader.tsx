@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/errors";
 import { uploadOwnPhoto } from "@/lib/users/client";
+import { resolveUploadUrl } from "@/lib/uploads";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png"];
@@ -53,7 +54,7 @@ export function PhotoUploader({
   return (
     <div className="flex items-center gap-4">
       <Avatar size="lg">
-        <AvatarImage src={preview ?? photoUrl ?? undefined} alt="" />
+        <AvatarImage src={preview ?? resolveUploadUrl(photoUrl)} alt="" />
         <AvatarFallback>{initials || "?"}</AvatarFallback>
       </Avatar>
       <div>

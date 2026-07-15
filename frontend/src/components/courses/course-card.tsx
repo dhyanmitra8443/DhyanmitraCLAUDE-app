@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { CourseThumbnail } from "@/components/courses/course-thumbnail";
 import type { CourseSummary } from "@/lib/api/types";
 
 const STATUS_VARIANT = {
@@ -22,10 +23,7 @@ export function CourseCard({
     <Link href={href ?? `/courses/${course.id}`}>
       <Card className="h-full overflow-hidden transition-shadow hover:shadow-md">
         <div className="bg-muted aspect-video w-full overflow-hidden">
-          {course.thumbnailUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- arbitrary externally-hosted URLs, not a configured next/image domain
-            <img src={course.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-          )}
+          <CourseThumbnail src={course.thumbnailUrl} className="h-full w-full object-cover" />
         </div>
         <CardContent className="space-y-2">
           <h3 className="font-medium">{course.title}</h3>

@@ -8,9 +8,10 @@ import { PublicCourseOutline } from "@/components/sections/public-course-outline
 import { CheckoutButton } from "@/components/payments/checkout-button";
 import { JoinLiveClassButton } from "@/components/live-classes/join-live-class-button";
 import { CourseProgressCard } from "@/components/progress/course-progress-card";
+import { CourseThumbnail } from "@/components/courses/course-thumbnail";
 import { getCourseDetail } from "@/lib/courses/queries";
 import { getCourseOutline } from "@/lib/sections/queries";
-import { listSubscriptionPlans } from "@/lib/subscriptions/queries";
+import { listSubscriptionPlans, getMySubscriptions } from "@/lib/subscriptions/queries";
 import { listLiveClassesByCourse } from "@/lib/live-classes/queries";
 import { getOwnCourseProgress } from "@/lib/progress/queries";
 import { getSession } from "@/lib/auth/session";
@@ -31,7 +32,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   }
 
   const session = await getSession();
-  const [sections, plans, liveClassesResult, progress] = await Promise.all([
+  const [sections, plans, liveClassesResult, progress, subscriptions] = await Promise.all([
     getCourseOutline(id),
     listSubscriptionPlans(id),
     // Ref: SRS 11.8 - the endpoint requires auth (admin/instructor always,
@@ -42,8 +43,11 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     // Ref: SRS 12.6 - student-only; swallow the 403 for a signed-in
     // non-student (admin/instructor previewing) rather than failing the page.
     session?.role === "STUDENT" ? getOwnCourseProgress(id).catch(() => null) : Promise.resolve(null),
+    // Used only to hide the purchase CTA for a student who's already enrolled.
+    session?.role === "STUDENT" ? getMySubscriptions().catch(() => []) : Promise.resolve([]),
   ]);
   const liveClasses = liveClassesResult?.content ?? [];
+  const hasActiveSubscription = subscriptions.some((s) => s.courseId === id && s.status === "ACTIVE");
   const isAssignedStaff =
     session &&
     (session.role === "ADMINISTRATOR" ||
@@ -56,10 +60,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
       </Link>
 
       <div className="bg-muted aspect-video w-full overflow-hidden rounded-xl">
-        {course.thumbnailUrl && (
-          // eslint-disable-next-line @next/next/no-img-element -- arbitrary externally-hosted URL
-          <img src={course.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-        )}
+        <CourseThumbnail src={course.thumbnailUrl} className="h-full w-full object-cover" />
       </div>
 
       <div className="flex items-start justify-between gap-4">
@@ -156,39 +157,45 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
           <CardTitle>Enroll</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {plans.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No subscription plans available yet.</p>
+          {hasActiveSubscription ? (
+            <p className="text-muted-foreground text-sm">You&apos;re enrolled in this course.</p>
           ) : (
-            <ul className="space-y-2">
-              {plans.map((plan) => (
-                <li key={plan.id} className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium">{plan.planName}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {plan.duration} {plan.durationUnit?.toLowerCase()}
-                      {(plan.duration ?? 0) > 1 ? "s" : ""} access
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold">
-                      {plan.price != null ? formatCurrency(plan.price) : ""}
-                    </span>
-                    {session?.role === "STUDENT" && plan.id && (
-                      <CheckoutButton courseId={id} subscriptionPlanId={plan.id} email={session.email} />
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+            <>
+              {plans.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No subscription plans available yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {plans.map((plan) => (
+                    <li key={plan.id} className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium">{plan.planName}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {plan.duration} {plan.durationUnit?.toLowerCase()}
+                          {(plan.duration ?? 0) > 1 ? "s" : ""} access
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold">
+                          {plan.price != null ? formatCurrency(plan.price) : ""}
+                        </span>
+                        {session?.role === "STUDENT" && plan.id && (
+                          <CheckoutButton courseId={id} subscriptionPlanId={plan.id} email={session.email} />
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-          {!session ? (
-            <Link href={`/sign-in?next=/courses/${id}`} className={cn(buttonVariants())}>
-              Sign in to enroll
-            </Link>
-          ) : session.role !== "STUDENT" ? (
-            <p className="text-muted-foreground text-sm">Enrollment is only available to students.</p>
-          ) : null}
+              {!session ? (
+                <Link href={`/sign-in?next=/courses/${id}`} className={cn(buttonVariants())}>
+                  Sign in to enroll
+                </Link>
+              ) : session.role !== "STUDENT" ? (
+                <p className="text-muted-foreground text-sm">Enrollment is only available to students.</p>
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
