@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { href: "/teach", label: "Dashboard" },
   { href: "/teach/courses", label: "Courses" },
   { href: "/teach/live-classes", label: "Live Classes" },
+  { href: "/teach/reports", label: "Reports" },
   { href: "/teach/notifications", label: "Notifications" },
   { href: "/teach/profile", label: "Profile" },
 ];

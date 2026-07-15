@@ -89,6 +89,42 @@ export type PageMeta = Schemas["PageMeta"];
 export type NotificationSummary = Schemas["NotificationSummary"];
 export type NotificationReadStatus = "UNREAD" | "READ";
 export type NotificationDeliveryChannel = "IN_APP" | "EMAIL";
+export type ReportKey = Schemas["ReportKey"];
+
+/** Ref: SRS 15.3 - GET /reports response item. No named schema in openapi.yaml (inlined). */
+export interface ReportDefinition {
+  reportKey: ReportKey;
+  title: string;
+}
+
+/** Ref: SRS 15.4-15.11 - the report's own column list, in display order. No named schema in openapi.yaml (inlined). */
+export interface ReportColumn {
+  key: string;
+  label: string;
+}
+
+/** Ref: SRS 15.4-15.11 - GET /reports/{reportKey} response. Row shape depends on reportKey, so content is untyped per-row. */
+export interface ReportData {
+  generatedAt: string;
+  columns: ReportColumn[];
+  content: Record<string, unknown>[];
+  page: PageMeta;
+}
+
+export type ReportFormat = "PDF" | "XLSX" | "CSV";
+export type ExportStatus = "PROCESSING" | "READY" | "FAILED";
+
+/** Ref: SRS 15.15 - 202 response when an export is queued asynchronously. No named schema in openapi.yaml (inlined). */
+export interface ExportJobResponse {
+  exportJobId: string;
+}
+
+/** Ref: SRS 15.15 - GET /reports/exports/{exportJobId} response. No named schema in openapi.yaml (inlined). */
+export interface ExportStatusResponse {
+  status: ExportStatus;
+  downloadUrl: string | null;
+  expiresInSeconds: number | null;
+}
 
 /** Ref: SRS 3.13 - the three roles, exactly as the backend spells them. */
 export type UserRole = "ADMINISTRATOR" | "INSTRUCTOR" | "STUDENT";
