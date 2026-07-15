@@ -49,6 +49,22 @@ async function call(path: string, init: RequestInit, accessToken?: string): Prom
 }
 
 /**
+ * Same one raw call as `call()`, but returns the untouched `Response`
+ * instead of decoding it as text/JSON - the BFF proxy needs this for
+ * binary payloads (report exports, certificate/lesson-resource downloads),
+ * which `call()`'s `response.text()` would corrupt via lossy UTF-8
+ * decoding before re-encoding it as a JSON string.
+ */
+async function callRaw(path: string, init: RequestInit, accessToken?: string): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  return fetch(`${BACKEND_URL}${path}`, { ...init, headers, cache: "no-store" });
+}
+
+/**
  * Exchanges the refresh token for a fresh access token and re-issues the
  * cookies. Returns the new access token, or null when the refresh token is
  * itself expired/revoked - in which case the caller must treat the user as
@@ -93,6 +109,23 @@ export async function callBackendAsUser(path: string, init: RequestInit): Promis
   }
 
   return call(path, init, refreshed);
+}
+
+/** Raw-response counterpart to `callBackendAsUser`, for the BFF proxy's binary passthrough. */
+export async function callBackendRawAsUser(path: string, init: RequestInit): Promise<Response> {
+  const accessToken = await getAccessToken();
+  const first = await callRaw(path, init, accessToken);
+
+  if (first.status !== 401) {
+    return first;
+  }
+
+  const refreshed = await refreshAccessToken();
+  if (!refreshed) {
+    return first;
+  }
+
+  return callRaw(path, init, refreshed);
 }
 
 /**
