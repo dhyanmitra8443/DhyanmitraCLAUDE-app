@@ -7,11 +7,13 @@ import { CourseStatusActions } from "@/components/courses/course-status-actions"
 import { CourseContentManager } from "@/components/sections/course-content-manager";
 import { SubscriptionPlansReadOnly } from "@/components/subscriptions/subscription-plans-readonly";
 import { LiveClassesManager } from "@/components/live-classes/live-classes-manager";
+import { CourseProgressTable } from "@/components/progress/course-progress-table";
 import { getCourseDetail } from "@/lib/courses/queries";
 import { listCategories } from "@/lib/categories/queries";
 import { getCourseOutline } from "@/lib/sections/queries";
 import { listSubscriptionPlans } from "@/lib/subscriptions/queries";
 import { listLiveClassesByCourse } from "@/lib/live-classes/queries";
+import { listCourseProgress } from "@/lib/progress/queries";
 import { ApiError } from "@/lib/api/errors";
 
 export const metadata = { title: "Edit course | Dhyan Mitra" };
@@ -33,11 +35,12 @@ export default async function InstructorCourseDetailPage({ params }: { params: P
     throw error;
   }
 
-  const [categoriesResult, sections, plans, liveClasses] = await Promise.all([
+  const [categoriesResult, sections, plans, liveClasses, progress] = await Promise.all([
     listCategories({ size: 100 }),
     getCourseOutline(id),
     listSubscriptionPlans(id),
     listLiveClassesByCourse(id, { size: 50 }),
+    listCourseProgress(id, { size: 50 }),
   ]);
 
   return (
@@ -96,6 +99,15 @@ export default async function InstructorCourseDetailPage({ params }: { params: P
         </CardHeader>
         <CardContent>
           <LiveClassesManager courseId={id} liveClasses={liveClasses.content} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Student progress</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CourseProgressTable rows={progress.content} />
         </CardContent>
       </Card>
     </div>

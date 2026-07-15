@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResourceDownloadButton } from "@/components/resources/resource-download-button";
+import { MarkLessonCompleteButton } from "@/components/progress/mark-lesson-complete-button";
 import { getLessonDetail } from "@/lib/lessons/queries";
 import { listLessonResources } from "@/lib/resources/queries";
 import { toEmbedUrl } from "@/lib/video";
+import { getSession } from "@/lib/auth/session";
 import { ApiError } from "@/lib/api/errors";
 
 const FILE_RESOURCE_TYPES = new Set(["PDF", "IMAGE", "AUDIO", "ZIP"]);
@@ -32,6 +34,7 @@ export default async function PublicLessonPage({
   // Ref: SRS 8.11 - same access rule as the lesson itself, so only fetch once access is confirmed.
   const resources = lesson ? await listLessonResources(lessonId) : [];
   const supportingResources = resources.filter((r) => r.resourceType !== "VIDEO" && r.status === "ACTIVE");
+  const session = lesson ? await getSession() : null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-6 py-10">
@@ -63,9 +66,12 @@ export default async function PublicLessonPage({
             />
           </div>
 
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{lesson.title}</h1>
-            {lesson.shortDescription && <p className="text-muted-foreground mt-1">{lesson.shortDescription}</p>}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">{lesson.title}</h1>
+              {lesson.shortDescription && <p className="text-muted-foreground mt-1">{lesson.shortDescription}</p>}
+            </div>
+            {session?.role === "STUDENT" && lesson.id && <MarkLessonCompleteButton lessonId={lesson.id} />}
           </div>
 
           {lesson.detailedDescription && (

@@ -7,10 +7,12 @@ import { cn } from "@/lib/utils";
 import { PublicCourseOutline } from "@/components/sections/public-course-outline";
 import { CheckoutButton } from "@/components/payments/checkout-button";
 import { JoinLiveClassButton } from "@/components/live-classes/join-live-class-button";
+import { CourseProgressCard } from "@/components/progress/course-progress-card";
 import { getCourseDetail } from "@/lib/courses/queries";
 import { getCourseOutline } from "@/lib/sections/queries";
 import { listSubscriptionPlans } from "@/lib/subscriptions/queries";
 import { listLiveClassesByCourse } from "@/lib/live-classes/queries";
+import { getOwnCourseProgress } from "@/lib/progress/queries";
 import { getSession } from "@/lib/auth/session";
 import { formatCurrency } from "@/lib/format";
 import { ApiError } from "@/lib/api/errors";
@@ -29,7 +31,7 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
   }
 
   const session = await getSession();
-  const [sections, plans, liveClassesResult] = await Promise.all([
+  const [sections, plans, liveClassesResult, progress] = await Promise.all([
     getCourseOutline(id),
     listSubscriptionPlans(id),
     // Ref: SRS 11.8 - the endpoint requires auth (admin/instructor always,
@@ -37,6 +39,9 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
     // anonymous visitors and swallow the 403 for signed-in-but-unsubscribed
     // students rather than failing the whole page.
     session ? listLiveClassesByCourse(id, { size: 20 }).catch(() => null) : Promise.resolve(null),
+    // Ref: SRS 12.6 - student-only; swallow the 403 for a signed-in
+    // non-student (admin/instructor previewing) rather than failing the page.
+    session?.role === "STUDENT" ? getOwnCourseProgress(id).catch(() => null) : Promise.resolve(null),
   ]);
   const liveClasses = liveClassesResult?.content ?? [];
   const isAssignedStaff =
@@ -81,6 +86,8 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
         )}
         {course.categories?.map((category) => <Badge key={category.id}>{category.name}</Badge>)}
       </div>
+
+      {progress && <CourseProgressCard progress={progress} />}
 
       <Card>
         <CardHeader>
