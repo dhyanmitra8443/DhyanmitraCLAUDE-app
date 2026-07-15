@@ -39,6 +39,17 @@ export type PaymentMethod = "CREDIT_CARD" | "DEBIT_CARD" | "UPI" | "NET_BANKING"
 export type GatewayEnvironment = "SANDBOX" | "PRODUCTION";
 export type PaymentGatewaySettingsView = Schemas["PaymentGatewaySettingsView"];
 export type PaymentGatewaySettings = Schemas["PaymentGatewaySettings"];
+export type SystemSettings = Schemas["SystemSettings"];
+export type AuthenticationSettings = Schemas["AuthenticationSettings"];
+export type EmailSettings = Schemas["EmailSettings"];
+export type EmailSettingsView = Schemas["EmailSettingsView"];
+export type CertificateSettings = Schemas["CertificateSettings"];
+
+/** Ref: SRS 16.8 - no named request schema in openapi.yaml (inlined). */
+export interface NotificationSettings {
+  emailNotificationsEnabled?: boolean;
+  inAppNotificationsEnabled?: boolean;
+}
 
 /** Ref: SRS 10.3, 10.4 - POST /orders body. No named schema in openapi.yaml (inlined). */
 export interface CreateOrderRequest {
