@@ -11,6 +11,8 @@ const NAV_ITEMS = [
   { href: "/admin/subscriptions", label: "Subscriptions" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/payments", label: "Payments" },
+  { href: "/admin/notifications", label: "Notifications" },
+  { href: "/admin/notifications/log", label: "Notification Log" },
   { href: "/admin/settings", label: "Settings" },
   { href: "/admin/profile", label: "Profile" },
 ];
@@ -22,6 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <AppShell
       areaLabel="Administrator"
       navItems={NAV_ITEMS}
+      notificationsHref="/admin/notifications"
       user={{ firstName: user.firstName ?? "", lastName: user.lastName ?? "", email: user.email ?? "" }}
     >
       {children}

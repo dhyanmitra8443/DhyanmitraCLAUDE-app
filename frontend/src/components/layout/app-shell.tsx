@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { UserMenu } from "./user-menu";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 export interface AppShellNavItem {
   href: string;
@@ -10,11 +11,13 @@ export interface AppShellNavItem {
 export function AppShell({
   areaLabel,
   navItems,
+  notificationsHref,
   user,
   children,
 }: {
   areaLabel: string;
   navItems: AppShellNavItem[];
+  notificationsHref: string;
   user: { firstName: string; lastName: string; email: string };
   children: ReactNode;
 }) {
@@ -39,7 +42,10 @@ export function AppShell({
           </nav>
         </div>
 
-        <UserMenu firstName={user.firstName} lastName={user.lastName} email={user.email} />
+        <div className="flex items-center gap-2">
+          <NotificationBell inboxHref={notificationsHref} />
+          <UserMenu firstName={user.firstName} lastName={user.lastName} email={user.email} />
+        </div>
       </header>
 
       <main className="flex-1 px-6 py-8">{children}</main>

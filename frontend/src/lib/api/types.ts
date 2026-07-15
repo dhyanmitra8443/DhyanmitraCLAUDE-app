@@ -86,6 +86,9 @@ export type AdminDashboard = Schemas["AdminDashboard"];
 export type InstructorDashboard = Schemas["InstructorDashboard"];
 export type RecentActivity = Schemas["RecentActivity"];
 export type PageMeta = Schemas["PageMeta"];
+export type NotificationSummary = Schemas["NotificationSummary"];
+export type NotificationReadStatus = "UNREAD" | "READ";
+export type NotificationDeliveryChannel = "IN_APP" | "EMAIL";
 
 /** Ref: SRS 3.13 - the three roles, exactly as the backend spells them. */
 export type UserRole = "ADMINISTRATOR" | "INSTRUCTOR" | "STUDENT";

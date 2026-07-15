@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/learn/certificates", label: "Certificates" },
   { href: "/learn/subscriptions", label: "Subscriptions" },
   { href: "/learn/payments", label: "Payments" },
+  { href: "/learn/notifications", label: "Notifications" },
   { href: "/learn/profile", label: "Profile" },
 ];
 
@@ -18,6 +19,7 @@ export default async function LearnLayout({ children }: { children: React.ReactN
     <AppShell
       areaLabel="Student"
       navItems={NAV_ITEMS}
+      notificationsHref="/learn/notifications"
       user={{ firstName: user.firstName ?? "", lastName: user.lastName ?? "", email: user.email ?? "" }}
     >
       {children}
