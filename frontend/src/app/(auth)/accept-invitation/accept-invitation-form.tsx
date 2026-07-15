@@ -15,6 +15,7 @@ import { acceptInvitation, previewInvitation } from "@/lib/auth/client";
 
 const schema = z
   .object({
+    mobileNumber: z.string().min(1, "Mobile number is required."),
     password: z.string().min(8, "Password must be at least 8 characters."),
     confirmPassword: z.string().min(1, "Please confirm your password."),
   })
@@ -45,7 +46,7 @@ export function AcceptInvitationForm() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { password: "", confirmPassword: "" },
+    defaultValues: { mobileNumber: "", password: "", confirmPassword: "" },
   });
 
   async function onSubmit(values: FormValues) {
@@ -58,7 +59,9 @@ export function AcceptInvitationForm() {
     } catch (error) {
       if (error instanceof ApiError) {
         for (const [field, message] of Object.entries(error.fieldErrors)) {
-          if (field === "password" || field === "confirmPassword") form.setError(field, { message });
+          if (field === "mobileNumber" || field === "password" || field === "confirmPassword") {
+            form.setError(field, { message });
+          }
         }
         setFormError(error.message);
       } else {
@@ -106,6 +109,20 @@ export function AcceptInvitationForm() {
             {formError}
           </p>
         )}
+
+        <FormField
+          control={form.control}
+          name="mobileNumber"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Mobile number</FormLabel>
+              <FormControl
+                render={<Input type="tel" autoComplete="tel" placeholder="+91 98765 43210" {...field} />}
+              />
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}

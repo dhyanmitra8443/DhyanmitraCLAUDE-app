@@ -331,9 +331,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [token, password, confirmPassword]
+              required: [token, mobileNumber, password, confirmPassword]
               properties:
                 token: { type: string }
+                mobileNumber: { type: string }
                 password: { type: string, format: password }
                 confirmPassword: { type: string, format: password }
       responses:

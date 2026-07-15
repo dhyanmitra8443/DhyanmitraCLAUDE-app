@@ -81,6 +81,7 @@ export function previewInvitation(token: string): Promise<{ email: string; first
 /** Ref: SRS 3.5 - public; completes instructor onboarding and activates the account. */
 export function acceptInvitation(payload: {
   token: string;
+  mobileNumber: string;
   password: string;
   confirmPassword: string;
 }): Promise<UserSummary> {

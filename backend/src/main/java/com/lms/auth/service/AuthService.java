@@ -261,12 +261,18 @@ public class AuthService {
         if (userRepository.existsByEmail(invitation.getEmail())) {
             throw new ConflictException("A user with this email already exists.");
         }
+        if (userRepository.existsByMobileNumber(request.mobileNumber())) {
+            throw new ConflictException("Mobile number is already registered.");
+        }
 
         User user = new User();
         user.setFirstName(invitation.getFirstName());
         user.setLastName(invitation.getLastName());
         user.setEmail(invitation.getEmail());
-        user.setMobileNumber(""); // Ref: SRS 4.7 - instructor completes profile details after activation
+        // Ref: SRS 4.7 - collected here (not at invite time) since the admin
+        // invites by email/name only; the instructor supplies their own
+        // contact number when activating the account.
+        user.setMobileNumber(request.mobileNumber());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(UserRole.INSTRUCTOR);
         user.setStatus(UserStatus.ACTIVE);

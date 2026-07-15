@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotBlank;
 @FieldsMatch(field = "password", confirmField = "confirmPassword", message = "Passwords do not match.")
 public record AcceptInvitationRequest(
         @NotBlank String token,
+        @NotBlank String mobileNumber,
         @ValidPassword String password,
         @NotBlank String confirmPassword
 ) {
