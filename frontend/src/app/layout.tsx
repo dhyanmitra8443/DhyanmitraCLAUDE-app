@@ -15,8 +15,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dhyan Mitra",
-  description: "Yoga courses, live classes and certification from DYJK Dhyan Mitra.",
+  metadataBase: new URL("https://dhyanmitra.in"),
+  title: {
+    default: "Dhyan Mitra | Online Yoga Courses, Live Classes & Certification",
+    template: "%s | Dhyan Mitra",
+  },
+  description:
+    "Dhyan Mitra (DYJK) offers online yoga courses, live instructor-led classes, and certification for students at every level.",
+  openGraph: {
+    siteName: "Dhyan Mitra",
+    type: "website",
+    url: "https://dhyanmitra.in",
+    title: "Dhyan Mitra | Online Yoga Courses, Live Classes & Certification",
+    description:
+      "Dhyan Mitra (DYJK) offers online yoga courses, live instructor-led classes, and certification for students at every level.",
+  },
 };
 
 export default function RootLayout({
