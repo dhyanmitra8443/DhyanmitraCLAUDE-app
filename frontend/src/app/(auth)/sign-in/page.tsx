@@ -6,7 +6,7 @@ export const metadata = { title: "Sign in | Dhyan Mitra" };
 
 export default function SignInPage() {
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-12">
+    <div className="mx-auto flex min-h-[70vh] w-full max-w-md flex-col justify-center px-6 py-12">
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
         <p className="text-muted-foreground mt-2 text-sm">Sign in to continue your practice.</p>

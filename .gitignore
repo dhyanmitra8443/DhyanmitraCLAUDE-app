@@ -15,3 +15,8 @@ target/
 uploads/
 # ...but not the frontend route that proxies to them - that's source code.
 !frontend/src/app/api/uploads/
+
+# Source/drop folder for raw brand assets (logo, certificate HTML, original
+# videos). The app-served copies live under frontend/public/ and are committed;
+# these originals are working material and shouldn't be swept in by `git add .`.
+frontend/Data/

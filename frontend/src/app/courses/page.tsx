@@ -1,11 +1,9 @@
-import Link from "next/link";
 import { CourseCard } from "@/components/courses/course-card";
 import { CourseFilterBar } from "@/components/courses/course-filter-bar";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { listCourses } from "@/lib/courses/queries";
 import { listCategories } from "@/lib/categories/queries";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { PublicShell } from "@/components/marketing/public-shell";
 
 export const metadata = { title: "Courses | Dhyan Mitra" };
 
@@ -47,27 +45,29 @@ export default async function CourseCatalogPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-6 py-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Courses</h1>
-        <Link href="/" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-          Home
-        </Link>
-      </div>
-
-      <CourseFilterBar categories={categoriesResult.content} basePath="/courses" />
-
-      {result.content.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No courses match these filters.</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {result.content.map((course) => (
-            <CourseCard key={course.id} course={course} />
-          ))}
+    <PublicShell>
+      <div className="mx-auto max-w-6xl space-y-6 px-6 py-10">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Courses</h1>
+          <p className="text-muted-foreground mt-2 text-sm">
+            Browse structured yoga programmes for every level.
+          </p>
         </div>
-      )}
 
-      <PaginationControls page={result.page.page ?? 0} totalPages={result.page.totalPages ?? 1} />
-    </div>
+        <CourseFilterBar categories={categoriesResult.content} basePath="/courses" />
+
+        {result.content.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No courses match these filters.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {result.content.map((course) => (
+              <CourseCard key={course.id} course={course} />
+            ))}
+          </div>
+        )}
+
+        <PaginationControls page={result.page.page ?? 0} totalPages={result.page.totalPages ?? 1} />
+      </div>
+    </PublicShell>
   );
 }

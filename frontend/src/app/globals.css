@@ -117,6 +117,34 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/*
+ * Brand theme, scoped to public/marketing pages via <PublicShell>. Derived
+ * from the DYJK certificate palette (frontend/Data/DYJK_Certificate.html):
+ * cream #FCF6E9 background, gold #D98E1E rules/rings, deep-brown #4A2E0A text.
+ * Applied on a wrapper only, so /admin, /teach, /learn keep the neutral theme.
+ * Primary uses the certificate's deep amber #A0521E (not the lighter gold) so
+ * white button text clears WCAG AA contrast.
+ */
+.theme-brand {
+  --background: #fcf6e9;
+  --foreground: #4a2e0a;
+  --card: #fffdf7;
+  --card-foreground: #4a2e0a;
+  --popover: #fffdf7;
+  --popover-foreground: #4a2e0a;
+  --primary: #a0521e;
+  --primary-foreground: #fffdf7;
+  --secondary: #f3e4c4;
+  --secondary-foreground: #4a2e0a;
+  --muted: #f0e6d2;
+  --muted-foreground: #6b5638;
+  --accent: #f3e4c4;
+  --accent-foreground: #4a2e0a;
+  --border: #e6d3a8;
+  --input: #e6d3a8;
+  --ring: #d98e1e;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
