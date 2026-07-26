@@ -48,6 +48,11 @@ public class SecurityConfig {
                 new AntPathRequestMatcher("/api/v1/auth/reset-password", HttpMethod.POST.name()),
                 new AntPathRequestMatcher("/api/v1/auth/instructors/invitations/*", HttpMethod.GET.name()),
                 new AntPathRequestMatcher("/api/v1/auth/instructors/accept-invitation", HttpMethod.POST.name()),
+                // Member referrals: the referee previews the token and creates
+                // their account before they have any credentials, so these two
+                // are public (ReferralService still validates the token itself).
+                new AntPathRequestMatcher("/api/v1/referrals/token/*", HttpMethod.GET.name()),
+                new AntPathRequestMatcher("/api/v1/referrals/accept", HttpMethod.POST.name()),
                 new AntPathRequestMatcher("/api/v1/courses/**", HttpMethod.GET.name()),
                 new AntPathRequestMatcher("/api/v1/categories/**", HttpMethod.GET.name()),
                 // Ref: SRS 7.11 - the designated preview lesson (and its

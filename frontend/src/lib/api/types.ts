@@ -140,6 +140,53 @@ export interface ExportStatusResponse {
 /** Ref: SRS 3.13 - the three roles, exactly as the backend spells them. */
 export type UserRole = "ADMINISTRATOR" | "INSTRUCTOR" | "STUDENT";
 
+/** Member referrals. No named schema in openapi.yaml (hand-written, like the other inline DTOs above). */
+export type ReferralStatus = "PENDING" | "ACCEPTED" | "EXPIRED";
+
+/** POST /referrals body - a referrer supplies the prospective member's name + email. */
+export interface CreateReferralRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+/** GET /referrals/token/{token} - shown to the referee before they set a password. */
+export interface ReferralPreview {
+  refereeFirstName: string;
+  refereeLastName: string;
+  refereeEmail: string;
+  referrerName: string;
+}
+
+/** A row in the referrer's own list (GET /referrals/mine). */
+export interface ReferralSummary {
+  id: string;
+  refereeFirstName: string;
+  refereeLastName: string;
+  refereeEmail: string;
+  status: ReferralStatus;
+  /** The joined member's account status once accepted; null while pending. */
+  referredUserStatus: "ACTIVE" | "INACTIVE" | "BLOCKED" | null;
+  createdAt: string;
+  acceptedAt: string | null;
+}
+
+/** A row in the admin cross-referrer view (GET /referrals). */
+export interface AdminReferral {
+  id: string;
+  referrerId: string;
+  referrerName: string | null;
+  referrerEmail: string | null;
+  refereeFirstName: string;
+  refereeLastName: string;
+  refereeEmail: string;
+  status: ReferralStatus;
+  referredUserId: string | null;
+  referredUserStatus: "ACTIVE" | "INACTIVE" | "BLOCKED" | null;
+  createdAt: string;
+  acceptedAt: string | null;
+}
+
 /** The `{ success, message, data }` envelope every backend endpoint returns (Ref: SRS 2.8). */
 export interface ApiEnvelope<T> {
   success: boolean;

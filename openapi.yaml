@@ -57,6 +57,8 @@ tags:
     description: Chapter 15 - Reports Management
   - name: Settings
     description: Chapter 16 - System Settings
+  - name: Referrals
+    description: Member referrals - a student/instructor refers a prospective member who joins as a student
 
 paths:
   # ======================================================================
@@ -3043,6 +3045,163 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ApiEnvelope' }
 
+  # ======================================================================
+  # Member Referrals
+  # ======================================================================
+  /referrals:
+    post:
+      tags: [Referrals]
+      summary: Refer a prospective member
+      description: >
+        A logged-in student or instructor refers a prospective member by name +
+        email. Creates a single-use, expiring referral (same mechanics as an
+        instructor invitation) and emails the referee an accept link. The
+        accepted account is always a STUDENT.
+      x-roles: [STUDENT, INSTRUCTOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReferralRequest' }
+      responses:
+        '201':
+          description: Referral created and invitation email queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '409':
+          description: Email already registered, or a pending referral already exists for it.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    get:
+      tags: [Referrals]
+      summary: List all referrals (admin)
+      description: >
+        Administrator-only cross-referrer view: every referral with both the
+        referrer and referee resolved, plus the joined member's status.
+      x-roles: [ADMINISTRATOR]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: search
+          in: query
+          description: Matches the referee's email, first name, or last name.
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/ReferralStatus' }
+      responses:
+        '200':
+          description: Paginated list of all referrals, newest first.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/AdminReferral' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /referrals/mine:
+    get:
+      tags: [Referrals]
+      summary: List my referrals
+      description: The signed-in referrer's own referrals ("who have I referred"), newest first.
+      x-roles: [STUDENT, INSTRUCTOR]
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated list of the referrer's own referrals.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          content:
+                            type: array
+                            items: { $ref: '#/components/schemas/ReferralSummary' }
+                          page: { $ref: '#/components/schemas/PageMeta' }
+
+  /referrals/token/{token}:
+    get:
+      tags: [Referrals]
+      summary: Validate a referral token
+      description: >
+        Public. Lets the frontend confirm a referral token is valid/unexpired
+        and display who is being invited before rendering the "create account"
+        form.
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Token is valid; returns the referee's name/email and the referrer's name.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ReferralPreview' }
+        '400':
+          description: Token invalid, expired, or already used.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /referrals/accept:
+    post:
+      tags: [Referrals]
+      summary: Accept a referral and create the account
+      description: "Public. Creates the referee's STUDENT account and marks the referral accepted."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, mobileNumber, password, confirmPassword]
+              properties:
+                token: { type: string }
+                mobileNumber: { type: string }
+                password: { type: string, format: password }
+                confirmPassword: { type: string, format: password }
+      responses:
+        '200':
+          description: Account created; the referee can now sign in.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '400':
+          description: Token invalid/expired/already used, or password policy not met.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Email or mobile number already registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3115,6 +3274,59 @@ components:
     UserRole:
       type: string
       enum: [ADMINISTRATOR, INSTRUCTOR, STUDENT]
+
+    ReferralStatus:
+      type: string
+      enum: [PENDING, ACCEPTED, EXPIRED]
+
+    CreateReferralRequest:
+      type: object
+      required: [firstName, lastName, email]
+      properties:
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string, format: email }
+
+    ReferralPreview:
+      type: object
+      properties:
+        refereeFirstName: { type: string }
+        refereeLastName: { type: string }
+        refereeEmail: { type: string, format: email }
+        referrerName: { type: string }
+
+    ReferralSummary:
+      type: object
+      description: A row in the referrer's own list.
+      properties:
+        id: { type: string, format: uuid }
+        refereeFirstName: { type: string }
+        refereeLastName: { type: string }
+        refereeEmail: { type: string, format: email }
+        status: { $ref: '#/components/schemas/ReferralStatus' }
+        referredUserStatus:
+          type: string
+          nullable: true
+          description: The joined member's account status once accepted; null while pending.
+        createdAt: { type: string, format: date-time }
+        acceptedAt: { type: string, format: date-time, nullable: true }
+
+    AdminReferral:
+      type: object
+      description: A row in the administrator cross-referrer view.
+      properties:
+        id: { type: string, format: uuid }
+        referrerId: { type: string, format: uuid }
+        referrerName: { type: string, nullable: true }
+        referrerEmail: { type: string, format: email, nullable: true }
+        refereeFirstName: { type: string }
+        refereeLastName: { type: string }
+        refereeEmail: { type: string, format: email }
+        status: { $ref: '#/components/schemas/ReferralStatus' }
+        referredUserId: { type: string, format: uuid, nullable: true }
+        referredUserStatus: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        acceptedAt: { type: string, format: date-time, nullable: true }
 
     RegisterStudentRequest:
       type: object
