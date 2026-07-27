@@ -2,16 +2,16 @@ import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentUser } from "@/lib/users/queries";
 
 const NAV_ITEMS = [
-  { href: "/learn", label: "Dashboard" },
-  { href: "/courses", label: "Courses" },
-  { href: "/learn/live-classes", label: "Live Classes" },
-  { href: "/learn/certificates", label: "Certificates" },
-  { href: "/learn/subscriptions", label: "Subscriptions" },
-  { href: "/learn/payments", label: "Payments" },
-  { href: "/learn/referrals", label: "Refer" },
-  { href: "/learn/reports", label: "Reports" },
-  { href: "/learn/notifications", label: "Notifications" },
-  { href: "/learn/profile", label: "Profile" },
+  { href: "/learn", label: "Dashboard", icon: "dashboard", primary: true },
+  { href: "/courses", label: "Courses", icon: "courses", primary: true },
+  { href: "/learn/live-classes", label: "Live Classes", icon: "live", primary: true },
+  { href: "/learn/profile", label: "Profile", icon: "profile", primary: true },
+  { href: "/learn/certificates", label: "Certificates", icon: "certificates" },
+  { href: "/learn/subscriptions", label: "Subscriptions", icon: "subscriptions" },
+  { href: "/learn/payments", label: "Payments", icon: "payments" },
+  { href: "/learn/referrals", label: "Refer", icon: "refer" },
+  { href: "/learn/reports", label: "Reports", icon: "reports" },
+  { href: "/learn/notifications", label: "Notifications", icon: "notifications" },
 ];
 
 export default async function LearnLayout({ children }: { children: React.ReactNode }) {
