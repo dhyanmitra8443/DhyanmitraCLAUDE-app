@@ -17,7 +17,7 @@ services:
     volumes:
       - dhyanmitra_claude_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-dhyanmitra_claude_user} -d ${DB_NAME:-dhyanmitra_claude_db}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME:-dhyanmitra_claude_user} -d ${DB_NAME:-dhyanmitra_claude_db}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -52,7 +52,7 @@ services:
       # Ref: SRS 16.9, 17.24 - encrypts the admin-supplied credentials stored in
       # system_settings. Override in the git-ignored .env for anything real.
       SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-dev-only-settings-encryption-key-change-me}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3001}
       # Defaults to the local Mailpit catcher; a git-ignored .env file at the
       # repo root can override these to point at a real SMTP provider
       # (Ref: SRS 18.24 - secrets never hardcoded or committed).
