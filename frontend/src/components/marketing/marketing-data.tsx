@@ -89,6 +89,42 @@ export const HIGHLIGHTS: { icon: Icon; title: string; sub: string }[] = [
   { icon: ShieldCheck, title: "Practices for Every Level", sub: "Beginner to advanced" },
 ];
 
+// "Upcoming Events" list. Honest cadence badges (Daily/Weekly/Monthly) rather
+// than invented calendar dates — these describe the kinds of sessions run.
+export const EVENTS: {
+  badge: string;
+  tone: "green" | "orange" | "blue";
+  title: string;
+  desc: string;
+  href: string;
+  cta: string;
+}[] = [
+  {
+    badge: "Daily",
+    tone: "green",
+    title: "Live Online Yoga Classes",
+    desc: "Instructor-led sessions you join over video, for every level.",
+    href: "/register",
+    cta: "Join now",
+  },
+  {
+    badge: "Weekly",
+    tone: "orange",
+    title: "Guided Meditation Sessions",
+    desc: "Group practice to quiet the mind and reduce stress.",
+    href: "/register",
+    cta: "Join now",
+  },
+  {
+    badge: "Monthly",
+    tone: "blue",
+    title: "Wellness & Detox Workshops",
+    desc: "Focused workshops on lifestyle, diet and well-being.",
+    href: "/events",
+    cta: "Learn more",
+  },
+];
+
 // Icon-badge colour classes keyed by tone.
 export const TONE_BADGE: Record<"green" | "orange" | "blue", string> = {
   green: "bg-[#2f9e5e] text-white",

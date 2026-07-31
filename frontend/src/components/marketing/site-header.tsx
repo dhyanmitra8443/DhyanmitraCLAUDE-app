@@ -90,19 +90,20 @@ export function SiteHeader() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5">
             <Image
-              src="/brand/dhyan-mitra-logo.jpg"
-              alt="Dhyan Mitra logo"
+              src="/brand/dhyan-mitra-logo.png"
+              alt="DYJK Dhyan Mitra logo"
               width={44}
               height={44}
               priority
-              className="border-primary/30 h-11 w-11 rounded-full border object-cover"
+              className="h-11 w-11 rounded-full object-cover"
             />
             <span className="leading-tight">
-              <span className="block text-lg font-semibold tracking-tight">
-                {SITE.name}
-                <span className="text-(--brand-orange)">.in</span>
+              <span className="block text-lg font-bold tracking-tight">
+                <span className="text-(--brand-orange-strong)">{SITE.brandPrefix}</span> {SITE.name}
               </span>
-              <span className="text-muted-foreground block text-[11px]">{SITE.tagline}</span>
+              <span className="text-muted-foreground block text-[10px] tracking-[0.14em] uppercase">
+                {SITE.institute}
+              </span>
             </span>
           </Link>
 

@@ -4,6 +4,8 @@
 // (undefined) to hide that icon rather than link somewhere broken.
 export const SITE = {
   name: "Dhyan Mitra",
+  brandPrefix: "DYJK",
+  institute: "Yoga & Meditation Institute",
   tagline: "Awaken Your Inner Peace",
   legalName: "DYJK Dhyan Mitra — Yoga & Meditation Institute",
   proprietor: "Shiv Narayan Gupta",

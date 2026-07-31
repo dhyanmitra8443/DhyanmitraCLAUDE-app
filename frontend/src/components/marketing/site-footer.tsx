@@ -31,15 +31,19 @@ export function SiteFooter() {
         <div>
           <div className="flex items-center gap-2.5">
             <Image
-              src="/brand/dhyan-mitra-logo.jpg"
-              alt="Dhyan Mitra logo"
-              width={40}
-              height={40}
-              className="h-10 w-10 rounded-full border border-white/20 object-cover"
+              src="/brand/dhyan-mitra-logo.png"
+              alt="DYJK Dhyan Mitra logo"
+              width={44}
+              height={44}
+              className="h-11 w-11 rounded-full object-cover"
             />
-            <span className="text-lg font-semibold text-white">
-              {SITE.name}
-              <span className="text-(--brand-orange)">.in</span>
+            <span className="leading-tight">
+              <span className="block text-lg font-bold text-white">
+                <span className="text-(--brand-orange)">{SITE.brandPrefix}</span> {SITE.name}
+              </span>
+              <span className="block text-[10px] tracking-[0.14em] text-white/60 uppercase">
+                {SITE.institute}
+              </span>
             </span>
           </div>
           <p className="mt-4 text-sm leading-relaxed">
