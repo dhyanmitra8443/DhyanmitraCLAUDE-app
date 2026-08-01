@@ -90,7 +90,7 @@ export function SiteHeader() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5">
             <Image
-              src="/brand/dhyan-mitra-logo.png"
+              src="/brand/edited_dhyan_mitra_logo.png"
               alt="DYJK Dhyan Mitra logo"
               width={44}
               height={44}
