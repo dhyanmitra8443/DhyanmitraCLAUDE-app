@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { getSession } from "@/lib/auth/session";
 import { HOME_FOR_ROLE } from "@/lib/auth/claims";
 import { PublicShell } from "@/components/marketing/public-shell";
-import { AutoplayVideo } from "@/components/marketing/autoplay-video";
 import { CourseCard } from "@/components/courses/course-card";
 import { listCourses } from "@/lib/courses/queries";
 import {
@@ -102,7 +101,15 @@ export default async function Home() {
 
       {/* Welcome */}
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-2 lg:py-20">
-        <AutoplayVideo src="/videos/video-2.mp4" label="Dhyan Mitra practice session" className="shadow-lg" />
+        <div className="ring-border/60 relative aspect-[4/3] w-full overflow-hidden rounded-xl shadow-lg ring-1">
+          <Image
+            src="/images/welcome.png"
+            alt="Lord Shiva blessing devotees practising yoga by a Himalayan river at sunrise"
+            fill
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            className="object-cover"
+          />
+        </div>
         <div>
           <p className="text-(--brand-orange) text-sm font-semibold tracking-wide uppercase">
             Welcome to {SITE.name}
