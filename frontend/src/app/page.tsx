@@ -42,17 +42,17 @@ export default async function Home() {
   return (
     <PublicShell>
       {/* Hero */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden min-h-[85vh] flex flex-col justify-center">
         <Image
-          src="/images/expanded_shiva_ultra_wide.png"
+          src="/images/image copy.png"
           alt="Lord Shiva blessing devotees practising yoga by a Himalayan river at sunrise"
           fill
           priority
           sizes="100vw"
-          className="object-cover object-bottom"
+          className="object-cover object-center"
         />
         <div className="from-background via-background/80 to-background/10 absolute inset-0 bg-gradient-to-r sm:via-background/55 sm:to-transparent" />
-        <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-28 lg:py-36">
+        <div className="relative w-full mx-auto max-w-6xl px-6 py-20 sm:py-28 lg:py-36">
           <div className="max-w-xl">
             <h1 className="text-4xl leading-tight font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
               <span className="text-primary">Awaken Your</span>
@@ -101,7 +101,7 @@ export default async function Home() {
 
       {/* Welcome */}
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-2 lg:py-20">
-        <div className="ring-border/60 relative aspect-[4/3] w-full overflow-hidden rounded-xl shadow-lg ring-1">
+        <div className="ring-border/60 relative aspect-square w-full overflow-hidden rounded-xl shadow-lg ring-1">
           <Image
             src="/images/shiva_hybrid_outdoor_event.png"
             alt="Person meditating by a lake at sunrise"
