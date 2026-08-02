@@ -44,7 +44,7 @@ export default async function Home() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <Image
-          src="/images/welcome.png"
+          src="/images/expanded_shiva_ultra_wide.png"
           alt="Lord Shiva blessing devotees practising yoga by a Himalayan river at sunrise"
           fill
           priority
@@ -103,11 +103,11 @@ export default async function Home() {
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-2 lg:py-20">
         <div className="ring-border/60 relative aspect-[4/3] w-full overflow-hidden rounded-xl shadow-lg ring-1">
           <Image
-            src="/images/hero.png"
+            src="/images/welcome_4_3.png"
             alt="Person meditating by a lake at sunrise"
             fill
             sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-cover object-[70%_center]"
+            className="object-cover"
           />
         </div>
         <div>
