@@ -31,7 +31,7 @@ export function SiteFooter() {
         <div>
           <div className="flex items-center gap-2.5">
             <Image
-              src="/brand/edited_dhyan_mitra_logo.png"
+              src="/brand/dhyan-mitra-logo.png"
               alt="DYJK Dhyan Mitra logo"
               width={44}
               height={44}
