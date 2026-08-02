@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { PlayCircle, ArrowRight, Quote, MapPin, Clock, Navigation } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { getSession } from "@/lib/auth/session";
 import { HOME_FOR_ROLE } from "@/lib/auth/claims";
 import { PublicShell } from "@/components/marketing/public-shell";
+import { AutoplayVideo } from "@/components/marketing/autoplay-video";
 import { CourseCard } from "@/components/courses/course-card";
 import { listCourses } from "@/lib/courses/queries";
 import {
@@ -46,13 +46,15 @@ export default async function Home() {
     <PublicShell>
       {/* Hero */}
       <section className="relative overflow-hidden min-h-[85vh] flex flex-col justify-center">
-        <Image
-          src="/images/image copy.png"
-          alt="Lord Shiva blessing devotees practising yoga by a Himalayan river at sunrise"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-center"
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          src="/videos/hero.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-hidden="true"
         />
         <div className="from-background via-background/80 to-background/10 absolute inset-0 bg-gradient-to-r sm:via-background/55 sm:to-transparent" />
         <div className="relative w-full mx-auto max-w-6xl px-6 py-20 sm:py-28 lg:py-36">
@@ -104,14 +106,7 @@ export default async function Home() {
 
       {/* Welcome */}
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-2 lg:py-20">
-        <Image
-          src="/images/shiva_hybrid_outdoor_event.png"
-          alt="Lord Shiva blessing devotees practising yoga at sunrise"
-          width={1024}
-          height={1024}
-          sizes="(max-width: 1024px) 100vw, 50vw"
-          className="ring-border/60 h-auto w-full rounded-xl shadow-lg ring-1"
-        />
+        <AutoplayVideo src="/videos/welcome.mp4" label="Dhyan Mitra yoga practice" className="shadow-lg" />
         <div>
           <p className="text-(--brand-orange) text-sm font-semibold tracking-wide uppercase">
             Welcome to {SITE.name}
@@ -206,20 +201,41 @@ export default async function Home() {
       )}
 
       {/* Free morning yoga bootcamp (in-person, daily) */}
-      <section className="bg-(--brand-green) text-white">
+      <section className="bg-card/40 border-border/60 border-y">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-2 lg:py-20">
+          <AutoplayVideo
+            src="/videos/bootcamp.mp4"
+            label="Free morning yoga bootcamp at Shri Kabir Bagh Ashram"
+            className="shadow-lg"
+          />
           <div>
-            <span className="bg-(--brand-orange-strong) inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide uppercase">
+            <span className="bg-(--brand-orange-strong) inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide text-white uppercase">
               Free &amp; open to all
             </span>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="text-primary mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
               Join our free morning yoga bootcamp
             </h2>
-            <p className="mt-4 text-white/85">
+            <p className="text-muted-foreground mt-4">
               We run free, in-person yoga sessions every day — come and practise with us at no cost.
               Whether you&apos;d like to join regularly or simply try a trial session, everyone is
               welcome. No fee, no registration required — just turn up.
             </p>
+            <ul className="mt-6 space-y-4">
+              <li className="flex items-start gap-3">
+                <Clock className="text-primary mt-0.5 size-5 shrink-0" aria-hidden="true" />
+                <div>
+                  <p className="font-semibold">Daily · 5:30 – 7:00 AM</p>
+                  <p className="text-muted-foreground text-sm">Every morning except Monday</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <MapPin className="text-primary mt-0.5 size-5 shrink-0" aria-hidden="true" />
+                <div>
+                  <p className="font-semibold">Shri Kabir Bagh Ashram</p>
+                  <p className="text-muted-foreground text-sm">Lahartara, Varanasi, Uttar Pradesh 221002</p>
+                </div>
+              </li>
+            </ul>
             <div className="mt-7 flex flex-wrap gap-3">
               <a
                 href={BOOTCAMP_MAPS_URL}
@@ -232,43 +248,10 @@ export default async function Home() {
               >
                 <Navigation className="size-5" aria-hidden="true" /> Get Directions
               </a>
-              <Link
-                href="/contact"
-                className={cn(
-                  buttonVariants({ size: "lg", variant: "outline" }),
-                  "border-white/30 bg-white/10 text-white hover:bg-white/20",
-                )}
-              >
+              <Link href="/contact" className={cn(buttonVariants({ size: "lg", variant: "outline" }))}>
                 Contact us
               </Link>
             </div>
-          </div>
-
-          <div className="rounded-2xl bg-white/10 p-6 ring-1 ring-white/15 sm:p-8">
-            <ul className="space-y-5">
-              <li className="flex items-start gap-3">
-                <Clock className="mt-0.5 size-5 shrink-0 text-white/90" aria-hidden="true" />
-                <div>
-                  <p className="font-semibold">Daily · 5:30 – 7:00 AM</p>
-                  <p className="text-sm text-white/75">Every morning except Monday</p>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <MapPin className="mt-0.5 size-5 shrink-0 text-white/90" aria-hidden="true" />
-                <div>
-                  <p className="font-semibold">Shri Kabir Bagh Ashram</p>
-                  <p className="text-sm text-white/75">Lahartara, Varanasi, Uttar Pradesh 221002</p>
-                </div>
-              </li>
-            </ul>
-            <a
-              href={BOOTCAMP_MAPS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-white underline-offset-4 hover:underline"
-            >
-              Open in Google Maps <ArrowRight className="size-4" aria-hidden="true" />
-            </a>
           </div>
         </div>
       </section>
