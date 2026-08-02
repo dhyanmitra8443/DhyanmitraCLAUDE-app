@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { PlayCircle, ArrowRight, Quote } from "lucide-react";
+import { PlayCircle, ArrowRight, Quote, MapPin, Clock, Navigation } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getSession } from "@/lib/auth/session";
@@ -19,6 +19,9 @@ import {
 } from "@/components/marketing/marketing-data";
 import { SITE } from "@/lib/site";
 import type { CourseSummary } from "@/lib/api/types";
+
+const BOOTCAMP_MAPS_URL =
+  "https://www.google.com/maps/place/25%C2%B018'47.0%22N+82%C2%B058'11.9%22E/@25.313067,82.96998,17z/data=!3m1!4b1!4m4!3m3!8m2!3d25.313067!4d82.96998?entry=ttu&g_ep=EgoyMDI2MDcyOS4wIKXMDSoASAFQAw%3D%3D";
 
 async function getShowcaseCourses(): Promise<CourseSummary[]> {
   // Landing page must render even if the catalogue backend is unreachable, so
@@ -101,15 +104,14 @@ export default async function Home() {
 
       {/* Welcome */}
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-2 lg:py-20">
-        <div className="ring-border/60 relative aspect-square w-full overflow-hidden rounded-xl shadow-lg ring-1">
-          <Image
-            src="/images/shiva_hybrid_outdoor_event.png"
-            alt="Person meditating by a lake at sunrise"
-            fill
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-cover"
-          />
-        </div>
+        <Image
+          src="/images/shiva_hybrid_outdoor_event.png"
+          alt="Lord Shiva blessing devotees practising yoga at sunrise"
+          width={1024}
+          height={1024}
+          sizes="(max-width: 1024px) 100vw, 50vw"
+          className="ring-border/60 h-auto w-full rounded-xl shadow-lg ring-1"
+        />
         <div>
           <p className="text-(--brand-orange) text-sm font-semibold tracking-wide uppercase">
             Welcome to {SITE.name}
@@ -202,6 +204,74 @@ export default async function Home() {
           </div>
         </section>
       )}
+
+      {/* Free morning yoga bootcamp (in-person, daily) */}
+      <section className="bg-(--brand-green) text-white">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-2 lg:py-20">
+          <div>
+            <span className="bg-(--brand-orange-strong) inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide uppercase">
+              Free &amp; open to all
+            </span>
+            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+              Join our free morning yoga bootcamp
+            </h2>
+            <p className="mt-4 text-white/85">
+              We run free, in-person yoga sessions every day — come and practise with us at no cost.
+              Whether you&apos;d like to join regularly or simply try a trial session, everyone is
+              welcome. No fee, no registration required — just turn up.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <a
+                href={BOOTCAMP_MAPS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  buttonVariants({ size: "lg" }),
+                  "bg-(--brand-orange-strong) hover:bg-(--brand-orange-strong)/90 gap-2 text-white",
+                )}
+              >
+                <Navigation className="size-5" aria-hidden="true" /> Get Directions
+              </a>
+              <Link
+                href="/contact"
+                className={cn(
+                  buttonVariants({ size: "lg", variant: "outline" }),
+                  "border-white/30 bg-white/10 text-white hover:bg-white/20",
+                )}
+              >
+                Contact us
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white/10 p-6 ring-1 ring-white/15 sm:p-8">
+            <ul className="space-y-5">
+              <li className="flex items-start gap-3">
+                <Clock className="mt-0.5 size-5 shrink-0 text-white/90" aria-hidden="true" />
+                <div>
+                  <p className="font-semibold">Daily · 5:30 – 7:00 AM</p>
+                  <p className="text-sm text-white/75">Every morning except Monday</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <MapPin className="mt-0.5 size-5 shrink-0 text-white/90" aria-hidden="true" />
+                <div>
+                  <p className="font-semibold">Shri Kabir Bagh Ashram</p>
+                  <p className="text-sm text-white/75">Lahartara, Varanasi, Uttar Pradesh 221002</p>
+                </div>
+              </li>
+            </ul>
+            <a
+              href={BOOTCAMP_MAPS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-white underline-offset-4 hover:underline"
+            >
+              Open in Google Maps <ArrowRight className="size-4" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      </section>
 
       {/* Upcoming events + what people say */}
       <section className="bg-card/50 border-border/60 border-y">
