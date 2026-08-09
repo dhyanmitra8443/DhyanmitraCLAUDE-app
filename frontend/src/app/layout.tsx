@@ -43,8 +43,29 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning: the inline script below adds the `dark` class to
+    // <html> before React hydrates, so the client markup intentionally differs
+    // from what the server rendered.
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {/*
+          Applies the stored theme before first paint. Without this the page
+          would render light and then snap to dark once React hydrated.
+
+          It lives here as the first child of <body> rather than in a <head>
+          block because the App Router owns <head> and drops inline scripts
+          placed there.
+
+          Only an explicit stored choice is honoured — the OS `prefers-color-scheme`
+          is deliberately ignored, so visitors who never touched the toggle
+          (including everyone signed out, who has no toggle) always get the
+          light brand palette the marketing pages were designed around.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('dm-theme')==='dark'){document.documentElement.classList.add('dark')}}catch(e){}`,
+          }}
+        />
         <Providers>
           {children}
           <Toaster richColors position="top-center" />

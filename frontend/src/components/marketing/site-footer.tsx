@@ -5,13 +5,17 @@ import { SITE, activeSocials } from "@/lib/site";
 import { SOCIAL_ICONS } from "./social-icons";
 import { NewsletterForm } from "./newsletter-form";
 
-const QUICK_LINKS = [
+// Courses is omitted here for the same reason as in SiteHeader: signed-out
+// visitors should not see it anywhere. PublicShell passes `coursesHref` once a
+// session exists and it is spliced back in below.
+const BASE_QUICK_LINKS = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About Us" },
-  { href: "/courses", label: "Courses" },
   { href: "/programs", label: "Programs" },
   { href: "/events", label: "Events" },
 ];
+
+const COURSES_LINK_INDEX = 2;
 
 const RESOURCES = [
   { href: "/blog", label: "Blog" },
@@ -21,8 +25,16 @@ const RESOURCES = [
   { href: "/terms", label: "Terms & Conditions" },
 ];
 
-export function SiteFooter() {
+export function SiteFooter({ coursesHref = null }: { coursesHref?: string | null }) {
   const socials = activeSocials();
+
+  const QUICK_LINKS = coursesHref
+    ? [
+        ...BASE_QUICK_LINKS.slice(0, COURSES_LINK_INDEX),
+        { href: coursesHref, label: "Courses" },
+        ...BASE_QUICK_LINKS.slice(COURSES_LINK_INDEX),
+      ]
+    : BASE_QUICK_LINKS;
 
   return (
     <footer className="bg-(--brand-green-dark) mt-auto text-white/80">

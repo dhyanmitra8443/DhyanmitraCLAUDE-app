@@ -10,10 +10,12 @@ import { cn } from "@/lib/utils";
 import { SITE, activeSocials } from "@/lib/site";
 import { SOCIAL_ICONS } from "./social-icons";
 
-const NAV = [
+// Courses is deliberately absent here: signed-out visitors (including on the
+// sign-in page) should not see it. PublicShell passes `coursesHref` once a
+// session exists, and it gets spliced back in after "About Us" below.
+const BASE_NAV = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About Us" },
-  { href: "/courses", label: "Courses" },
   { href: "/programs", label: "Programs" },
   { href: "/blog", label: "Blog" },
   { href: "/events", label: "Events" },
@@ -21,10 +23,20 @@ const NAV = [
   { href: "/contact", label: "Contact" },
 ];
 
-export function SiteHeader() {
+const COURSES_NAV_INDEX = 2;
+
+export function SiteHeader({ coursesHref = null }: { coursesHref?: string | null }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const socials = activeSocials();
+
+  const NAV = coursesHref
+    ? [
+        ...BASE_NAV.slice(0, COURSES_NAV_INDEX),
+        { href: coursesHref, label: "Courses" },
+        ...BASE_NAV.slice(COURSES_NAV_INDEX),
+      ]
+    : BASE_NAV;
 
   // Close the mobile menu on route change and lock body scroll while open.
   useEffect(() => {

@@ -118,10 +118,12 @@
 }
 
 /*
- * Brand theme, scoped to public/marketing pages via <PublicShell>. A calm
- * yoga palette: forest green as the primary, warm orange as the accent, on a
- * soft cream background. Applied on a wrapper only, so /admin, /teach, /learn
- * keep the neutral theme. `--primary` (green) and `--brand-orange-strong`
+ * Brand theme, applied via <PublicShell> on public/marketing pages and via
+ * <AppShell> on /admin, /teach and /learn, so the whole app shares one
+ * identity. A calm yoga palette: forest green as the primary, warm orange as
+ * the accent, on a soft cream background. Still applied on wrappers rather
+ * than :root, so the neutral tokens remain the documented default for
+ * anything rendered outside a shell. `--primary` (green) and `--brand-orange-strong`
  * both clear WCAG AA with white text; the brighter `--brand-orange` is for
  * large display text / icon accents on light backgrounds.
  */
@@ -148,6 +150,46 @@
   --brand-green: #1e6b3f;
   --brand-green-dark: #14522f;
   --brand-orange: #e07b1a;
+  --brand-orange-strong: #b45309;
+}
+
+/*
+ * Dark counterpart of the brand theme.
+ *
+ * This block is required, not optional: `.theme-brand` and `.dark` have the
+ * same specificity, and `.theme-brand` is declared later, so on its own it
+ * would win and dark mode would do nothing inside a shell. `.dark .theme-brand`
+ * (two classes) outranks both.
+ *
+ * The palette keeps the green identity rather than going neutral-grey: the
+ * background is a desaturated near-black green, and `--primary` lifts to a
+ * brighter green because the light-mode forest green is far too dark to sit on
+ * a dark surface. `--primary-foreground` flips to near-black to stay legible on
+ * it. `--brand-orange-strong` is deliberately unchanged — it is the CTA button
+ * fill and still pairs with white text.
+ */
+.dark .theme-brand {
+  --background: #12180f;
+  --foreground: #e7eee4;
+  --card: #1a221a;
+  --card-foreground: #e7eee4;
+  --popover: #1a221a;
+  --popover-foreground: #e7eee4;
+  --primary: #5cbb82;
+  --primary-foreground: #0c130e;
+  --secondary: #222c23;
+  --secondary-foreground: #e7eee4;
+  --muted: #212a21;
+  --muted-foreground: #a6b6a8;
+  --accent: #222c23;
+  --accent-foreground: #5cbb82;
+  --border: #2c372d;
+  --input: #2c372d;
+  --ring: #5cbb82;
+
+  --brand-green: #5cbb82;
+  --brand-green-dark: #0d150f;
+  --brand-orange: #f0a04b;
   --brand-orange-strong: #b45309;
 }
 
