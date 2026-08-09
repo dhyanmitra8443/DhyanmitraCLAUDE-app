@@ -1,9 +1,9 @@
 # Production stack (Ref: SRS 18.2, 18.9). Nginx runs on the host (not in
 # this compose file) and is the only thing reachable from the internet -
-# every service here binds to 127.0.0.1 only, or (postgres) isn't published
-# at all. Contrast with docker-compose.yml (local dev): that one exposes
-# postgres on a host port and has no frontend service since the frontend
-# runs via `npm run dev` locally instead.
+# every service here binds to 127.0.0.1 only. Contrast with
+# docker-compose.yml (local dev): that one publishes postgres on a public
+# host port and has no frontend service, since the frontend runs via
+# `npm run dev` locally instead.
 services:
   postgres:
     image: postgres:16-alpine
@@ -20,9 +20,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    # No `ports:` - only reachable from other containers on this compose
-    # network (Ref: SRS 18.2 - "the database shall never be exposed
-    # directly to the internet").
+    # Bound to the VPS loopback only - NOT published to the internet, which
+    # keeps SRS 18.2 ("the database shall never be exposed directly to the
+    # internet") satisfied: nothing outside the host can route to 127.0.0.1,
+    # and the firewall/Nginx never forward 5432. Reaching it still requires an
+    # SSH session, e.g. `ssh -L 5432:localhost:5432 dhyanmitra` for DBeaver.
+    #
+    # This lives in the tracked compose file on purpose. It was previously done
+    # via an untracked docker-compose.dbaccess.yml override on the VPS, which
+    # any plain redeploy silently discarded; the fallback (tunnelling to the
+    # container IP) then broke too, because Docker reassigns that IP whenever
+    # containers are recreated.
+    ports:
+      - "127.0.0.1:5432:5432"
 
   backend:
     build:
