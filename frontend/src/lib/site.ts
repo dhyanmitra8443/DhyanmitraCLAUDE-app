@@ -10,7 +10,7 @@ export const SITE = {
   legalName: "DYJK Dhyan Mitra — Yoga & Meditation Institute",
   proprietor: "Shiv Narayan Gupta",
   email: "admin@dhyanmitra.in",
-  phone: "+91 95696 93176",
+  phone: "+91 9129382566",
   location: "India",
   domain: "dhyanmitra.in",
   socials: {
